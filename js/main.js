@@ -4,8 +4,12 @@
 
    States:  LOADING → UNIVERSE → ROOM → GALLERY → ROOM (loop)
 
-   The three act objects are created once and reused.
-   DOM containers are shown/hidden via .hidden class.
+   Audio phases (synced to visual beats):
+     0  → pad drone only              (scene opens)
+     1  → bass ostinato               (line 1 at t=1.2 s)
+     2  → kick enters                 (line 2 at t=2.8 s)
+     3  → snare + hi-hat              (line 3 at t=4.6 s)
+     4  → full action + brass         (Earth zoom triggered)
    ================================================================ */
 
 (function () {
@@ -27,40 +31,32 @@
 
   let current = STATE.LOADING;
 
-  /* ── Scene instances (lazy-created) ─────────────────────────── */
+  /* ── Scene & audio instances ─────────────────────────────────── */
   let universe = null;
   let room     = null;
   let gallery  = null;
+  let audio    = new CinematicAudio();
 
   /* ── Initialise ─────────────────────────────────────────────── */
   function init() {
-    // Generate gallery images first (CPU-bound, done synchronously
-    // on a small canvas — fast enough for a loading screen)
     gallery = new GalleryScene();
 
-    // Give the browser a frame to paint loading screen, then boot Three.js scenes
     requestAnimationFrame(() => {
       universe = new UniverseScene();
+      room     = new RoomScene();
 
-      // Build room scene (Three.js setup + env map bake)
-      room = new RoomScene();
-
-      // Wire up callbacks
       room.onGallerySelect = openGallery;
       gallery.onBack       = returnToRoom;
 
-      // Skip intro button
       document.getElementById('skip-intro').addEventListener('click', skipIntro);
 
-      // Short artificial delay so the loading sphere animation plays
       setTimeout(hideLoading, 900);
     });
   }
 
-  /* ── Hide loading screen → start Act 1 ──────────────────────── */
+  /* ── Hide loading → start Act 1 ─────────────────────────────── */
   function hideLoading() {
     $loading.classList.add('fade-out');
-
     setTimeout(() => {
       $loading.style.display = 'none';
       enterUniverse();
@@ -72,15 +68,34 @@
     current = STATE.UNIVERSE;
     $act1.classList.remove('hidden');
 
-    // Fade intro text in, then auto-transition after ~9 s
+    // ── Start audio on first interaction (browser policy) ─────────
+    // Any click/key on the page will unlock AudioContext.
+    // We try immediately; browsers that allow it will just work.
+    const tryAudio = () => {
+      audio.start().catch(() => {});
+    };
+    tryAudio();
+    document.addEventListener('click',   tryAudio, { once: true });
+    document.addEventListener('keydown',  tryAudio, { once: true });
+
+    // ── Sync audio phases to text fade-in timings ─────────────────
+    // line 1 appears at  t = 1.2 s  →  phase 1 (bass ostinato)
+    // line 2 appears at  t = 2.8 s  →  phase 2 (kick drum)
+    // line 3 appears at  t = 4.6 s  →  phase 3 (snare + hi-hat)
+    gsap.delayedCall(1.2, () => audio.setPhase(1));
+    gsap.delayedCall(2.8, () => audio.setPhase(2));
+    gsap.delayedCall(4.6, () => audio.setPhase(3));
+
+    // ── Play intro text, then auto-zoom ───────────────────────────
     universe.playIntro(() => {
-      // After intro text fully played, wait then zoom
       gsap.delayedCall(2.5, beginZoom);
     });
   }
 
   function beginZoom() {
     if (current !== STATE.UNIVERSE) return;
+    // Fire riser + advance to full action phase
+    audio.triggerZoomRiser();
     universe.transitionOut(enterRoom);
   }
 
@@ -88,31 +103,26 @@
     if (current !== STATE.UNIVERSE) return;
     gsap.killTweensOf('.intro-line');
     gsap.killTweensOf('#skip-intro');
+    audio.setPhase(4);
     universe.transitionOut(enterRoom);
   }
 
   /* ── ACT 2 · ROOM & SPHERE ───────────────────────────────────── */
   function enterRoom() {
     current = STATE.ROOM;
-
-    // Show room canvas; hide universe (keep it alive for back)
     $act2.classList.remove('hidden');
-
-    // Start room render loop
     room.start();
 
-    // Fade overlay out to reveal scene
+    // Fade audio from epic → subtle ambient
+    audio.fadeOut(2.5);
+
     gsap.to(document.getElementById('act2-overlay'), {
       opacity:  0,
       duration: 1.4,
       ease:     'power2.out',
       onStart: () => {
-        // Can now hide universe to save memory / GPU
         $act1.classList.add('hidden');
-        if (universe) {
-          universe.dispose();
-          universe = null;
-        }
+        if (universe) { universe.dispose(); universe = null; }
       },
     });
   }
@@ -120,19 +130,11 @@
   /* ── ACT 3 · GALLERY ─────────────────────────────────────────── */
   function openGallery(id) {
     current = STATE.GALLERY;
-
-    // act2 overlay is already opaque (room handled the fade-to-black)
-    // Switch containers
     $act3.classList.remove('hidden');
     $act2.classList.add('hidden');
 
-    // Reset act3 overlay if needed
-    const act3Overlay = document.getElementById('act2-overlay');
-
-    // Open the gallery
     gallery.open(id);
 
-    // Fade in act3
     const fadeCover = document.getElementById('image-fade');
     gsap.to(fadeCover, { opacity: 0, duration: 1.2, delay: 0.1, ease: 'power2.out' });
   }
@@ -141,9 +143,7 @@
   function returnToRoom() {
     if (current !== STATE.GALLERY) return;
 
-    // Fade gallery out
     const fadeCover = document.getElementById('image-fade');
-
     gsap.to(fadeCover, {
       opacity:  1,
       duration: 0.8,
@@ -152,14 +152,10 @@
         $act3.classList.add('hidden');
         $act2.classList.remove('hidden');
 
-        // Reset gallery title visibility
         document.getElementById('gallery-title').classList.remove('visible');
         document.getElementById('gallery-subtitle').classList.remove('visible');
 
-        // Room transition-in (fades the room overlay out)
-        room.transitionIn(() => {
-          current = STATE.ROOM;
-        });
+        room.transitionIn(() => { current = STATE.ROOM; });
       },
     });
   }
