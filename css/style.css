@@ -1,0 +1,333 @@
+/* ================================================================
+   CINEMATIC PORTFOLIO — Global Styles
+   ================================================================ */
+
+/* --- Reset & Custom Properties ---------------------------------- */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --black:        #0b0b0f;
+  --deep-black:   #05050a;
+  --off-white:    #eaeaea;
+  --dim-white:    rgba(234, 234, 234, 0.55);
+  --ghost-white:  rgba(234, 234, 234, 0.2);
+  --accent:       #b30000;
+  --accent-glow:  rgba(179, 0, 0, 0.4);
+  --accent-dim:   rgba(179, 0, 0, 0.15);
+
+  --serif: 'Playfair Display', 'Georgia', serif;
+  --sans:  'Inter', 'Helvetica Neue', sans-serif;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--black);
+  color: var(--off-white);
+  font-family: var(--sans);
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ================================================================
+   LOADING SCREEN
+   ================================================================ */
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--deep-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 1s ease;
+}
+
+#loading-screen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+.loading-sphere {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 32%, #1e1e1e, #050505 70%);
+  box-shadow:
+    inset -4px -4px 10px rgba(0, 0, 0, 0.7),
+    inset  2px  2px  6px rgba(255, 255, 255, 0.04),
+    0 0 30px var(--accent-dim);
+  animation: loading-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes loading-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow:
+      inset -4px -4px 10px rgba(0,0,0,0.7),
+      inset  2px  2px  6px rgba(255,255,255,0.04),
+      0 0 25px var(--accent-dim);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow:
+      inset -4px -4px 10px rgba(0,0,0,0.7),
+      inset  2px  2px  6px rgba(255,255,255,0.04),
+      0 0 50px var(--accent-glow);
+  }
+}
+
+.loading-text {
+  font-family: var(--sans);
+  font-size: 0.65rem;
+  font-weight: 200;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ghost-white);
+}
+
+/* ================================================================
+   ACT CONTAINERS
+   ================================================================ */
+.act {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.act canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ================================================================
+   SCREEN OVERLAY (for cross-fade transitions)
+   ================================================================ */
+.screen-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--black);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* ================================================================
+   ACT 1 · INTRO TEXT
+   ================================================================ */
+.intro-text {
+  position: absolute;
+  bottom: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 5;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.intro-line {
+  display: block;
+  font-family: var(--serif);
+  font-size: clamp(1.4rem, 2.8vw, 2.6rem);
+  font-weight: 400;
+  color: var(--off-white);
+  letter-spacing: 0.03em;
+  line-height: 1.7;
+  opacity: 0;
+  transform: translateY(18px);
+  text-shadow: 0 2px 40px rgba(0, 0, 0, 0.9);
+}
+
+/* Skip button */
+.skip-btn {
+  position: absolute;
+  bottom: 32px;
+  right: 44px;
+  background: none;
+  border: none;
+  font-family: var(--sans);
+  font-size: 0.65rem;
+  font-weight: 200;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ghost-white);
+  cursor: pointer;
+  z-index: 30;
+  padding: 10px;
+  transition: color 0.35s ease;
+}
+
+.skip-btn:hover {
+  color: var(--dim-white);
+}
+
+/* ================================================================
+   ACT 2 · SPHERE ROOM UI
+   ================================================================ */
+
+/* Hint text at the bottom */
+.sphere-hint {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  font-weight: 200;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ghost-white);
+  z-index: 5;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+/* "Select your destination." prompt */
+.sphere-prompt {
+  position: absolute;
+  top: 28%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.sphere-prompt span {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  color: var(--dim-white);
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 30px rgba(179, 0, 0, 0.3);
+}
+
+/* ================================================================
+   HOLOGRAPHIC LABELS (injected by act2.js)
+   ================================================================ */
+#labels-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  overflow: hidden;
+}
+
+.holo-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: all;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.holo-label-inner {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 4px;
+  position: relative;
+}
+
+.holo-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  animation: dot-breathe 2.2s ease-in-out infinite;
+}
+
+@keyframes dot-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.35; transform: scale(0.75); }
+}
+
+.holo-line {
+  width: 18px;
+  height: 1px;
+  background: linear-gradient(to right, var(--accent-glow), transparent);
+  flex-shrink: 0;
+}
+
+.holo-text {
+  font-family: var(--sans);
+  font-size: 0.6rem;
+  font-weight: 200;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--dim-white);
+  white-space: nowrap;
+  transition: color 0.25s ease, letter-spacing 0.3s ease;
+  position: relative;
+}
+
+.holo-text::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.holo-label:hover .holo-text {
+  color: var(--off-white);
+  letter-spacing: 0.32em;
+}
+
+.holo-label:hover .holo-text::after {
+  width: 100%;
+}
+
+.holo-label:hover .holo-dot {
+  animation: none;
+  opacity: 1;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* ================================================================
+   CHROMATIC ABERRATION FLASH (activation effect)
+   ================================================================ */
+#chroma-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0;
+}
+
+/* ================================================================
+   TYPOGRAPHY UTILITIES
+   ================================================================ */
+.serif { font-family: var(--serif); }
+.mono  { font-family: monospace; }
+
+/* ================================================================
+   SCROLLBAR (hidden everywhere)
+   ================================================================ */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }

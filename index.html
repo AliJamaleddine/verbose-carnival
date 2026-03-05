@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>[ Portfolio ] — Through the Lens</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@200;300;400&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/gallery.css" />
+</head>
+<body>
+
+  <!-- ─── LOADING SCREEN ─────────────────────────────────────────── -->
+  <div id="loading-screen">
+    <div class="loading-content">
+      <div class="loading-sphere"></div>
+      <p class="loading-text">Initializing Experience</p>
+    </div>
+  </div>
+
+  <!-- ─── ACT 1 · THE UNIVERSE ──────────────────────────────────── -->
+  <div id="act1" class="act">
+    <canvas id="universe-canvas"></canvas>
+    <div id="act1-overlay" class="screen-overlay"></div>
+
+    <div id="intro-text" class="intro-text" aria-label="Portfolio intro">
+      <p class="intro-line line-1">Billions of places.</p>
+      <p class="intro-line line-2">I chose to see some of them.</p>
+    </div>
+
+    <button id="skip-intro" class="skip-btn" aria-label="Skip intro">Skip</button>
+  </div>
+
+  <!-- ─── ACT 2 · THE ROOM & THE SPHERE ────────────────────────── -->
+  <div id="act2" class="act hidden">
+    <canvas id="room-canvas"></canvas>
+    <div id="act2-overlay" class="screen-overlay"></div>
+
+    <!-- Holographic labels injected by act2.js -->
+    <div id="labels-container" aria-label="Destination labels"></div>
+
+    <!-- Prompt above sphere -->
+    <div id="sphere-prompt" class="sphere-prompt hidden" aria-live="polite">
+      <span>Select your destination.</span>
+    </div>
+
+    <!-- Hint at the bottom -->
+    <p id="sphere-hint" class="sphere-hint">Drag to orbit &nbsp;·&nbsp; Click to activate</p>
+  </div>
+
+  <!-- ─── ACT 3 · THE MEMORIES (GALLERY) ───────────────────────── -->
+  <div id="act3" class="act hidden">
+    <div id="gallery-viewer">
+
+      <!-- Image display -->
+      <div id="gallery-image-container">
+        <div class="grain-overlay"></div>
+        <img id="gallery-image" src="" alt="Gallery photograph" draggable="false" />
+        <div id="image-fade" class="image-fade"></div>
+      </div>
+
+      <!-- UI chrome -->
+      <div id="gallery-ui">
+        <div id="gallery-header">
+          <button id="gallery-back" class="back-btn" aria-label="Return to sphere">← Return</button>
+          <div id="gallery-title-area">
+            <h1 id="gallery-title"></h1>
+            <p id="gallery-subtitle"></p>
+          </div>
+          <div id="gallery-counter" aria-live="polite"></div>
+        </div>
+
+        <div id="gallery-nav">
+          <button id="gallery-prev" class="nav-btn" aria-label="Previous image">&#8249;</button>
+          <button id="gallery-next" class="nav-btn" aria-label="Next image">&#8250;</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── SCRIPTS ───────────────────────────────────────────────── -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.140.0/build/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+  <script src="js/noise.js"></script>
+  <script src="js/act1.js"></script>
+  <script src="js/act2.js"></script>
+  <script src="js/act3.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
