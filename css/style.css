@@ -160,6 +160,14 @@ html, body {
   text-shadow: 0 2px 40px rgba(0, 0, 0, 0.9);
 }
 
+/* Third line — smaller, italic, dim */
+.intro-line.line-3 {
+  font-size: clamp(0.9rem, 1.6vw, 1.4rem);
+  font-style: italic;
+  color: var(--dim-white);
+  margin-top: 4px;
+}
+
 /* Skip button */
 .skip-btn {
   position: absolute;
