@@ -335,6 +335,36 @@ html, body {
 .mono  { font-family: monospace; }
 
 /* ================================================================
+   ACT 2 · INVERTED THEME  (white room — dark text)
+   ================================================================ */
+
+/* Hint & prompt text: dark charcoal */
+#act2 .sphere-hint {
+  color: rgba(30, 26, 20, 0.45);
+}
+
+#act2 .sphere-prompt span {
+  color: rgba(30, 26, 20, 0.65);
+  text-shadow: none;
+}
+
+/* Holographic labels: dark text, dark underline */
+#act2 .holo-text {
+  color: rgba(30, 26, 20, 0.60);
+}
+
+#act2 .holo-label:hover .holo-text {
+  color: rgba(20, 16, 10, 0.90);
+  letter-spacing: 0.32em;
+}
+
+/* Transition overlay: keep white so the fade feels consistent
+   with the bright room instead of cutting to black */
+#act2-overlay {
+  background: #f2f0e8;
+}
+
+/* ================================================================
    SCROLLBAR (hidden everywhere)
    ================================================================ */
 ::-webkit-scrollbar { display: none; }

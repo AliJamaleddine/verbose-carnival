@@ -105,114 +105,156 @@ class UniverseScene {
     this.scene.add(this._stars);
   }
 
-  /* ── Earth procedural texture (per-pixel noise) ──────────────── */
-  _generateEarthTexture() {
-    const W = 1024, H = 512;
+  /* ── Shared elevation data (Float32Array) ────────────────────── */
+  _generateElevation(W, H) {
+    const elev = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) {
+      const latAbs = Math.abs(y / H - 0.5) * 2.0;
+      for (let x = 0; x < W; x++) {
+        const nx = (x / W) * 6.2;
+        const ny = (y / H) * 3.1;
+
+        // Domain-warped FBM — organic continent shapes
+        const wx = NoiseUtils.fbm(nx,       ny,       4) * 2.1;
+        const wy = NoiseUtils.fbm(nx + 5.2, ny + 1.3, 4) * 2.1;
+        let e = NoiseUtils.fbm(nx + wx, ny + wy, 8);
+
+        // Ridge noise — sharp mountain spines
+        const ridge  = NoiseUtils.ridgedFbm(nx * 1.7 + 3.1, ny * 1.7 + 7.4, 6);
+        // Secondary ridges at a different angle for cross-range texture
+        const ridge2 = NoiseUtils.ridgedFbm(nx * 2.3 + 9.8, ny * 1.1 + 2.5, 4);
+        e = e * 0.55 + ridge * 0.32 + ridge2 * 0.13;
+
+        // Fine micro-relief detail
+        const micro = NoiseUtils.fbm(nx * 5.5 + 21.3, ny * 5.5 + 8.7, 3) * 0.06;
+        e = Math.max(0, Math.min(1, e + micro));
+
+        // Polar ice caps
+        const polarBlend = Math.max(0, (latAbs - 0.80) / 0.20);
+        e = e * (1 - polarBlend) + 0.94 * polarBlend;
+
+        elev[y * W + x] = e;
+      }
+    }
+    return elev;
+  }
+
+  /* ── Color texture from elevation ────────────────────────────── */
+  _generateEarthTexture(elev, W, H) {
     const canvas = document.createElement('canvas');
     canvas.width  = W;
     canvas.height = H;
-    const ctx     = canvas.getContext('2d');
-    const imgData = ctx.createImageData(W, H);
-    const d       = imgData.data;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(W, H);
+    const d   = img.data;
 
-    // Colour stops (RGB) for elevation ramp
-    const COLORS = {
-      deepOcean:    [  8,  22,  68],
-      ocean:        [ 14,  48, 110],
-      shallowOcean: [ 22,  88, 148],
-      coast:        [ 90, 120,  68],
-      lowland:      [ 42, 110,  30],
-      midland:      [ 34,  90,  24],
-      highland:     [ 80,  68,  42],
-      rocky:        [110,  96,  72],
-      snowline:     [200, 210, 220],
-      snow:         [235, 242, 252],
+    // Photo-matched colour palette (Central-Asia / Himalaya look)
+    const C = {
+      deepSea:   [  6,  16,  52],   // abyssal blue
+      ocean:     [ 12,  42, 105],   // open ocean
+      shallow:   [ 22,  80, 140],   // shelf / shallow
+      coast:     [ 55,  78,  42],   // dark-green coastal plain
+      steppe:    [148, 118,  62],   // tan / ochre steppe (Tibet)
+      highland:  [128,  92,  48],   // mid-brown highland
+      rocky:     [ 88,  68,  38],   // dark rocky ridge base
+      scree:     [118, 102,  84],   // grey-brown scree / talus
+      snowline:  [195, 188, 178],   // grey-white transition
+      snow:      [245, 248, 255],   // pure white peaks
     };
 
-    function lerpColor(a, b, t) {
-      return [
-        Math.round(a[0] + (b[0] - a[0]) * t),
-        Math.round(a[1] + (b[1] - a[1]) * t),
-        Math.round(a[2] + (b[2] - a[2]) * t),
-      ];
-    }
+    const lerp3 = (a, b, t) => [
+      (a[0] + (b[0] - a[0]) * t + 0.5) | 0,
+      (a[1] + (b[1] - a[1]) * t + 0.5) | 0,
+      (a[2] + (b[2] - a[2]) * t + 0.5) | 0,
+    ];
 
-    function elevationToColor(e) {
-      if (e < 0.36) return lerpColor(COLORS.deepOcean,    COLORS.ocean,        e / 0.36);
-      if (e < 0.44) return lerpColor(COLORS.ocean,        COLORS.shallowOcean, (e - 0.36) / 0.08);
-      if (e < 0.48) return lerpColor(COLORS.shallowOcean, COLORS.coast,        (e - 0.44) / 0.04);
-      if (e < 0.54) return lerpColor(COLORS.coast,        COLORS.lowland,      (e - 0.48) / 0.06);
-      if (e < 0.64) return lerpColor(COLORS.lowland,      COLORS.midland,      (e - 0.54) / 0.10);
-      if (e < 0.73) return lerpColor(COLORS.midland,      COLORS.highland,     (e - 0.64) / 0.09);
-      if (e < 0.82) return lerpColor(COLORS.highland,     COLORS.rocky,        (e - 0.73) / 0.09);
-      if (e < 0.90) return lerpColor(COLORS.rocky,        COLORS.snowline,     (e - 0.82) / 0.08);
-      return lerpColor(COLORS.snowline, COLORS.snow, Math.min(1, (e - 0.90) / 0.10));
-    }
+    const elevToColor = (e) => {
+      if (e < 0.36) return lerp3(C.deepSea,  C.ocean,    e / 0.36);
+      if (e < 0.44) return lerp3(C.ocean,    C.shallow,  (e - 0.36) / 0.08);
+      if (e < 0.49) return lerp3(C.shallow,  C.coast,    (e - 0.44) / 0.05);
+      if (e < 0.56) return lerp3(C.coast,    C.steppe,   (e - 0.49) / 0.07);
+      if (e < 0.65) return lerp3(C.steppe,   C.highland, (e - 0.56) / 0.09);
+      if (e < 0.72) return lerp3(C.highland, C.rocky,    (e - 0.65) / 0.07);
+      if (e < 0.79) return lerp3(C.rocky,    C.scree,    (e - 0.72) / 0.07);
+      if (e < 0.87) return lerp3(C.scree,    C.snowline, (e - 0.79) / 0.08);
+      return lerp3(C.snowline, C.snow, Math.min(1, (e - 0.87) / 0.09));
+    };
 
     for (let y = 0; y < H; y++) {
-      const lat = (y / H - 0.5) * Math.PI;           // -π/2 … π/2
-      const latAbs = Math.abs(y / H - 0.5) * 2.0;    // 0 (equator) … 1 (pole)
-
+      const latAbs = Math.abs(y / H - 0.5) * 2.0;
       for (let x = 0; x < W; x++) {
-        const nx = (x / W) * 6.0;
-        const ny = (y / H) * 3.0;
+        const e = elev[y * W + x];
+        let [r, g, b] = elevToColor(e);
 
-        // Domain-warped fbm for organic continent shapes
-        const wx = NoiseUtils.fbm(nx + 0.0, ny + 0.0, 4) * 1.8;
-        const wy = NoiseUtils.fbm(nx + 5.2, ny + 1.3, 4) * 1.8;
-        let e  = NoiseUtils.fbm(nx + wx, ny + wy, 7);
-
-        // Second layer: ridge noise for mountain ranges
-        const ridge = NoiseUtils.ridgedFbm(nx * 1.5 + 3.1, ny * 1.5 + 7.4, 5);
-        e = e * 0.72 + ridge * 0.28;
-
-        // Clamp elevation to [0,1]
-        e = Math.max(0, Math.min(1, e));
-
-        // Polar flattening — force ice at poles
-        const polarBlend = Math.max(0, (latAbs - 0.78) / 0.22);
-        e = e * (1 - polarBlend) + 0.92 * polarBlend;
-
-        // Equatorial moisture bias — push coasts toward more green
-        const eqBias = Math.max(0, 1.0 - latAbs * 2.2) * 0.04;
-        if (e > 0.46 && e < 0.70) e = Math.max(0.46, e - eqBias);
-
-        let [r, g, b] = elevationToColor(e);
-
-        // Ocean depth tint (darker the deeper)
+        // Ocean depth darkening
         if (e < 0.44) {
-          const depth = 1.0 - e / 0.44;
-          r = Math.round(r * (1 - depth * 0.5));
-          g = Math.round(g * (1 - depth * 0.4));
-          b = Math.round(b * (1 - depth * 0.2));
+          const depth = 1 - e / 0.44;
+          r = (r * (1 - depth * 0.6) + 0.5) | 0;
+          g = (g * (1 - depth * 0.5) + 0.5) | 0;
+          b = (b * (1 - depth * 0.2) + 0.5) | 0;
         }
 
-        // Subtle latitude-temperature tint on land
-        if (e >= 0.46 && latAbs > 0.45 && latAbs < 0.78) {
-          const cold = (latAbs - 0.45) / 0.33;
-          r = Math.round(r + (180 - r) * cold * 0.22);
-          g = Math.round(g + (190 - g) * cold * 0.18);
-          b = Math.round(b + (200 - b) * cold * 0.22);
+        // Subtle cold-tint at mid-latitudes on land
+        if (e >= 0.49 && latAbs > 0.48 && latAbs < 0.80) {
+          const cold = (latAbs - 0.48) / 0.32;
+          r = (r + (175 - r) * cold * 0.18 + 0.5) | 0;
+          g = (g + (188 - g) * cold * 0.15 + 0.5) | 0;
+          b = (b + (205 - b) * cold * 0.20 + 0.5) | 0;
         }
 
-        const idx = (y * W + x) * 4;
-        d[idx]     = Math.max(0, Math.min(255, r));
-        d[idx + 1] = Math.max(0, Math.min(255, g));
-        d[idx + 2] = Math.max(0, Math.min(255, b));
-        d[idx + 3] = 255;
+        const i = (y * W + x) * 4;
+        d[i]     = Math.max(0, Math.min(255, r));
+        d[i + 1] = Math.max(0, Math.min(255, g));
+        d[i + 2] = Math.max(0, Math.min(255, b));
+        d[i + 3] = 255;
       }
     }
 
-    ctx.putImageData(imgData, 0, 0);
+    ctx.putImageData(img, 0, 0);
 
-    // Specular / sunlit side overlay
-    const spec = ctx.createRadialGradient(W * 0.32, H * 0.28, 0, W * 0.5, H * 0.5, W * 0.6);
-    spec.addColorStop(0,   'rgba(255,250,240,0.06)');
+    // Sunlit hemisphere soft overlay
+    const spec = ctx.createRadialGradient(W * 0.30, H * 0.26, 0, W * 0.5, H * 0.5, W * 0.58);
+    spec.addColorStop(0,   'rgba(255,248,228,0.07)');
     spec.addColorStop(0.5, 'rgba(0,0,0,0)');
-    spec.addColorStop(1,   'rgba(0,0,0,0.28)');
+    spec.addColorStop(1,   'rgba(0,0,0,0.30)');
     ctx.fillStyle = spec;
     ctx.fillRect(0, 0, W, H);
 
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  /* ── Normal map from elevation (Sobel gradient) ──────────────── */
+  _generateNormalMap(elev, W, H) {
+    const canvas = document.createElement('canvas');
+    canvas.width  = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(W, H);
+    const d   = img.data;
+
+    const STR = 10.0; // relief strength — higher = more dramatic mountains
+
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const xl = elev[y * W + Math.max(0, x - 1)];
+        const xr = elev[y * W + Math.min(W - 1, x + 1)];
+        const yu = elev[Math.max(0, y - 1) * W + x];
+        const yd = elev[Math.min(H - 1, y + 1) * W + x];
+
+        const nx = (xl - xr) * STR;
+        const ny = (yd - yu) * STR;
+        const nz = 1.0;
+        const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+
+        const i = (y * W + x) * 4;
+        d[i]     = ((nx / len) * 0.5 + 0.5) * 255 | 0;
+        d[i + 1] = ((ny / len) * 0.5 + 0.5) * 255 | 0;
+        d[i + 2] = ((nz / len) * 0.5 + 0.5) * 255 | 0;
+        d[i + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(img, 0, 0);
     return new THREE.CanvasTexture(canvas);
   }
 
@@ -252,16 +294,20 @@ class UniverseScene {
 
   /* ── Earth sphere ─────────────────────────────────────────────── */
   _buildEarth() {
-    const earthTex  = this._generateEarthTexture();
+    const W = 1024, H = 512;
+    const elev      = this._generateElevation(W, H);
+    const earthTex  = this._generateEarthTexture(elev, W, H);
+    const normalTex = this._generateNormalMap(elev, W, H);
     const cloudTex  = this._generateCloudTexture();
 
-    // Earth — higher vertex count for smoother lighting
-    const earthGeo  = new THREE.SphereGeometry(1, 96, 96);
+    // Higher vertex count so normal map is smooth at close zoom range
+    const earthGeo  = new THREE.SphereGeometry(1, 128, 128);
     const earthMat  = new THREE.MeshPhongMaterial({
-      map:       earthTex,
-      specular:  new THREE.Color(0x1a3a66),   // ocean glint only
-      shininess: 38,
-      reflectivity: 0.3,
+      map:         earthTex,
+      normalMap:   normalTex,
+      normalScale: new THREE.Vector2(2.2, 2.2),
+      specular:    new THREE.Color(0x0d2a55),
+      shininess:   28,
     });
     this._earth = new THREE.Mesh(earthGeo, earthMat);
     this.scene.add(this._earth);

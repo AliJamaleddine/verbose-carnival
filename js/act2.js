@@ -55,17 +55,17 @@ class RoomScene {
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setClearColor(0x06060a, 1);
+    this.renderer.setClearColor(0xf2f0e8, 1);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping        = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.9;
+    this.renderer.toneMappingExposure = 1.05;
   }
 
   /* ── Scene & camera ───────────────────────────────────────────── */
   _setupScene() {
     this.scene  = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x06060a, 8, 22);
+    this.scene.fog = new THREE.Fog(0xf2f0e8, 8, 22);
 
     this.camera = new THREE.PerspectiveCamera(
       42, window.innerWidth / window.innerHeight, 0.1, 100
@@ -83,31 +83,32 @@ class RoomScene {
     ec.width = W; ec.height = H;
     const ectx = ec.getContext('2d');
 
-    // Very dark base
-    ectx.fillStyle = '#06060a';
+    // Warm white base
+    ectx.fillStyle = '#f2f0e8';
     ectx.fillRect(0, 0, W, H);
 
-    // Warm overhead light bloom (top of equirect = top of sphere)
-    const topLight = ectx.createRadialGradient(W / 2, 0, 0, W / 2, 0, W * 0.35);
-    topLight.addColorStop(0, 'rgba(90, 60, 35, 0.85)');
-    topLight.addColorStop(0.4, 'rgba(40, 25, 12, 0.4)');
-    topLight.addColorStop(1,   'rgba(0,  0,  0,  0)');
+    // Bright warm ceiling (top of equirect = top of sphere reflection)
+    const topLight = ectx.createRadialGradient(W / 2, 0, 0, W / 2, 0, W * 0.4);
+    topLight.addColorStop(0,   'rgba(255, 248, 220, 0.9)');
+    topLight.addColorStop(0.5, 'rgba(240, 230, 200, 0.4)');
+    topLight.addColorStop(1,   'rgba(0,   0,   0,   0)');
     ectx.fillStyle = topLight;
-    ectx.fillRect(0, 0, W, H * 0.45);
+    ectx.fillRect(0, 0, W, H * 0.5);
 
-    // Subtle red underglow (accent reflection)
-    const botLight = ectx.createRadialGradient(W / 2, H, 0, W / 2, H, W * 0.3);
-    botLight.addColorStop(0, 'rgba(60, 5, 5, 0.55)');
-    botLight.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    // Subtle floor shadow at the bottom of the sphere reflection
+    const botLight = ectx.createRadialGradient(W / 2, H, 0, W / 2, H, W * 0.35);
+    botLight.addColorStop(0,   'rgba(60, 50, 40, 0.35)');
+    botLight.addColorStop(0.6, 'rgba(60, 50, 40, 0.10)');
+    botLight.addColorStop(1,   'rgba(0, 0, 0, 0)');
     ectx.fillStyle = botLight;
-    ectx.fillRect(0, H * 0.65, W, H * 0.35);
+    ectx.fillRect(0, H * 0.6, W, H * 0.4);
 
-    // Faint side light (cool blue-grey)
-    const sideLight = ectx.createRadialGradient(W * 0.15, H * 0.5, 0, W * 0.15, H * 0.5, W * 0.25);
-    sideLight.addColorStop(0, 'rgba(30, 35, 55, 0.5)');
-    sideLight.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    // Cool blue-grey side accent (gives the silver sphere depth)
+    const sideLight = ectx.createRadialGradient(W * 0.12, H * 0.5, 0, W * 0.12, H * 0.5, W * 0.28);
+    sideLight.addColorStop(0, 'rgba(160, 175, 210, 0.55)');
+    sideLight.addColorStop(1, 'rgba(0,   0,   0,   0)');
     ectx.fillStyle = sideLight;
-    ectx.fillRect(0, 0, W * 0.4, H);
+    ectx.fillRect(0, 0, W * 0.45, H);
 
     const envTexture = new THREE.CanvasTexture(ec);
     envTexture.mapping = THREE.EquirectangularReflectionMapping;
@@ -124,9 +125,9 @@ class RoomScene {
   /* ── Room geometry ────────────────────────────────────────────── */
   _buildRoom() {
     const darkMat = new THREE.MeshStandardMaterial({
-      color:     0x080810,
-      roughness: 0.95,
-      metalness: 0.05,
+      color:     0xeeeae0,
+      roughness: 0.92,
+      metalness: 0.02,
     });
 
     // Floor
@@ -151,9 +152,9 @@ class RoomScene {
     // Volumetric-light-look: cone from above
     const coneGeo = new THREE.ConeGeometry(3.5, 6.5, 32, 1, true);
     const coneMat = new THREE.MeshBasicMaterial({
-      color:      0x1a1008,
+      color:      0xfff8e8,
       transparent: true,
-      opacity:    0.09,
+      opacity:    0.18,
       side:       THREE.DoubleSide,
       depthWrite:  false,
       blending:   THREE.AdditiveBlending,
@@ -169,10 +170,10 @@ class RoomScene {
     const geo = new THREE.SphereGeometry(1, 64, 64);
 
     this._sphereMat = new THREE.MeshStandardMaterial({
-      color:            0x050508,
-      metalness:        1.0,
+      color:            0xf0f0f0,
+      metalness:        0.95,
       roughness:        0.04,
-      envMapIntensity:  1.8,
+      envMapIntensity:  2.2,
       emissive:         new THREE.Color(0x000000),
       emissiveIntensity: 0,
     });
@@ -229,10 +230,10 @@ class RoomScene {
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
     const mat = new THREE.PointsMaterial({
-      color:           0x2a2030,
-      size:            0.04,
+      color:           0x9896a4,
+      size:            0.035,
       transparent:     true,
-      opacity:         0.6,
+      opacity:         0.55,
       sizeAttenuation: true,
       depthWrite:      false,
     });
@@ -243,8 +244,8 @@ class RoomScene {
 
   /* ── Lights ───────────────────────────────────────────────────── */
   _buildLights() {
-    // Overhead spot (the key "volumetric" light)
-    this._keyLight = new THREE.SpotLight(0xddc890, 3.5, 12, Math.PI / 5, 0.5, 1.5);
+    // Overhead spot — warm key light casting a soft shadow on the floor
+    this._keyLight = new THREE.SpotLight(0xfff3d0, 2.8, 12, Math.PI / 5, 0.5, 1.5);
     this._keyLight.position.set(0, 5, 0.5);
     this._keyLight.target.position.set(0, 0, 0);
     this._keyLight.castShadow = true;
@@ -254,18 +255,18 @@ class RoomScene {
     this.scene.add(this._keyLight);
     this.scene.add(this._keyLight.target);
 
-    // Subtle cool fill from front-left
-    this._fillLight = new THREE.PointLight(0x1a2a4a, 0.6, 8, 2);
+    // Cool blue-grey fill from front-left
+    this._fillLight = new THREE.PointLight(0x8090c0, 1.2, 10, 2);
     this._fillLight.position.set(-3, 1, 3);
     this.scene.add(this._fillLight);
 
     // Accent red underlight (hidden until activation)
-    this._redLight = new THREE.PointLight(0xaa0000, 0, 4, 2);
+    this._redLight = new THREE.PointLight(0xcc0000, 0, 5, 2);
     this._redLight.position.set(0, -1.5, 0);
     this.scene.add(this._redLight);
 
-    // Tiny ambient
-    this.scene.add(new THREE.AmbientLight(0x06060c, 2));
+    // Bright ambient — essential for a white room to feel airy
+    this.scene.add(new THREE.AmbientLight(0xd8d4cc, 4));
   }
 
   /* ── Holographic labels ───────────────────────────────────────── */
