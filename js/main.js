@@ -72,7 +72,7 @@
     // Any click/key on the page will unlock AudioContext.
     // We try immediately; browsers that allow it will just work.
     const tryAudio = () => {
-      audio.start().catch(() => {});
+      audio.start();
     };
     tryAudio();
     document.addEventListener('click',   tryAudio, { once: true });
@@ -94,8 +94,8 @@
 
   function beginZoom() {
     if (current !== STATE.UNIVERSE) return;
-    // Fire riser + advance to full action phase
-    audio.triggerZoomRiser();
+    // Audio is best-effort — never let it block the visual transition
+    try { audio.triggerZoomRiser(); } catch (_) {}
     universe.transitionOut(enterRoom);
   }
 

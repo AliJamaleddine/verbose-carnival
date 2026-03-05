@@ -33,12 +33,19 @@ class CinematicAudio {
 
   /* ── Public API ───────────────────────────────────────────────── */
 
-  async start() {
+  start() {
     if (this._running) return;
+
+    try {
+      this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (_) { return; }
+
     this._running = true;
 
-    this._ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (this._ctx.state === 'suspended') await this._ctx.resume();
+    // Fire-and-forget resume — do NOT await. Awaiting blocks the entire
+    // setup in Chrome until the user interacts, leaving _noiseBuffer=null
+    // which then throws when triggerZoomRiser() tries to play it.
+    if (this._ctx.state === 'suspended') this._ctx.resume().catch(() => {});
 
     /* Signal chain ─────────────────────────────────────────────────
        instruments
@@ -92,7 +99,7 @@ class CinematicAudio {
 
   /** Noise riser sweep + big BOOM for Earth zoom. */
   triggerZoomRiser() {
-    if (!this._ctx) return;
+    if (!this._ctx || !this._noiseBuffer) return;
     const t = this._ctx.currentTime;
 
     // Riser: bandpass noise sweeping 200 Hz → 12 kHz over 2.8 s
