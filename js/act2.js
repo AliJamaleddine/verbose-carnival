@@ -539,10 +539,10 @@ class RoomScene {
     addPanel(new THREE.PlaneGeometry(sidePW,   winH),  lRot, -5, winCY, wallL + sidePW / 2);          // left side
     addPanel(new THREE.PlaneGeometry(sidePW,   winH),  lRot, -5, winCY, wallR - sidePW / 2);          // right side
 
-    // City view plane behind left window — exactly matches opening
+    // City view plane — nearly flush with wall so it reads as a window, not a box
     const lCity = new THREE.Mesh(new THREE.PlaneGeometry(winW, winH), cityMat.clone());
     lCity.rotation.y = lRot;
-    lCity.position.set(-5.6, winCY, winCZ);
+    lCity.position.set(-5.04, winCY, winCZ);
     this.scene.add(lCity);
 
     // ── RIGHT WALL — 4 panels around window ───────────────────────
@@ -552,52 +552,28 @@ class RoomScene {
     addPanel(new THREE.PlaneGeometry(sidePW,   winH),  rRot,  5, winCY, wallL + sidePW / 2);
     addPanel(new THREE.PlaneGeometry(sidePW,   winH),  rRot,  5, winCY, wallR - sidePW / 2);
 
-    // City view plane behind right window
+    // City view plane — right wall
     const rCity = new THREE.Mesh(new THREE.PlaneGeometry(winW, winH), cityMat.clone());
     rCity.rotation.y = rRot;
-    rCity.position.set(5.6, winCY, winCZ);
+    rCity.position.set(5.04, winCY, winCZ);
     this.scene.add(rCity);
 
-    // ── Window reveals / embrasure (wall thickness cross-section) ─
-    // Gives each window physical depth (0.6m wall thickness)
-    const revealMat = new THREE.MeshStandardMaterial({ color: 0xddd4c8, roughness: 0.88, metalness: 0.0 });
-
-    // Window reveals — wall cross-section visible inside the opening
-    const addRevealPieces = (wx) => {
-      const depth = 0.6;
-      const cx = wx < 0 ? wx - depth / 2 : wx + depth / 2;
-      const pieces = [
-        [depth, 0.04, winW,        cx, winTop,  winCZ],  // soffit
-        [depth, 0.10, winW + 0.08, cx, winBot,  winCZ],  // sill
-        [depth, winH, 0.04,        cx, winCY,   winL ],  // left jamb
-        [depth, winH, 0.04,        cx, winCY,   winR ],  // right jamb
-      ];
-      pieces.forEach(([bw, bh, bd, px, py, pz]) => {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), revealMat);
-        m.position.set(px, py, pz);
-        this.scene.add(m);
-      });
-    };
-    addRevealPieces(-5);
-    addRevealPieces( 5);
-
-    // ── Window frames (slim dark metal) ───────────────────────────
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.25, metalness: 0.80 });
-    const fD = 0.05, fW = 0.055;
+    // ── Window frames — very thin aluminum border only ─────────────
+    // Simple perimeter strip, 3 cm wide, 2 cm deep — barely visible at distance
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x202020, roughness: 0.25, metalness: 0.85 });
+    const fW = 0.04, fD = 0.02;  // bar width and depth into room
 
     const addFrame = (wx) => {
       const sx = wx < 0 ? 1 : -1;
       const ex = wx + sx * fD / 2;
       [
-        [ex, winTop, winCZ,  winW + fW * 2, fW, fD],   // top rail
-        [ex, winBot, winCZ,  winW + fW * 2, fW, fD],   // bottom rail
-        [ex, winCY,  winL,   fD, winH + fW * 2, fW],   // left post
-        [ex, winCY,  winR,   fD, winH + fW * 2, fW],   // right post
-        // Three horizontal rails dividing into 4 panes
-        [ex, winBot + winH * 0.33, winCZ,  winW, fW * 0.8, fD],
-        [ex, winBot + winH * 0.66, winCZ,  winW, fW * 0.8, fD],
-        // One vertical mullion
-        [ex, winCY, winCZ,  fD, winH, fW * 0.8],
+        // perimeter only — top, bottom, left post, right post
+        [ex, winTop, winCZ,  winW + fW * 2, fW, fD],
+        [ex, winBot, winCZ,  winW + fW * 2, fW, fD],
+        [ex, winCY,  winL,   fD, winH, fW],
+        [ex, winCY,  winR,   fD, winH, fW],
+        // one thin centre mullion
+        [ex, winCY, winCZ,   fD, winH, fW * 0.7],
       ].forEach(([fx, fy, fz, bw, bh, bd]) => {
         const fb = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), frameMat);
         fb.position.set(fx, fy, fz);
