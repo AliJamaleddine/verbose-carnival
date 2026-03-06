@@ -122,47 +122,267 @@ class RoomScene {
     this.scene.environment = this._envMap;
   }
 
-  /* ── Procedural wood floor texture ───────────────────────────── */
-  _buildWoodTexture() {
+  /* ── Procedural city night skyline texture ────────────────────── */
+  _buildCityTexture() {
+    const W = 1024, H = 512;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const h = (n) => { const x = Math.sin(n + 1) * 73856; return x - Math.floor(x); };
+
+    // Deep night sky
+    const sky = ctx.createLinearGradient(0, 0, 0, H * 0.7);
+    sky.addColorStop(0,    '#04060f');
+    sky.addColorStop(0.45, '#080d1e');
+    sky.addColorStop(1,    '#141d38');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // Stars
+    for (let i = 0; i < 180; i++) {
+      const sx = h(i * 6.1) * W, sy = h(i * 3.9) * H * 0.6;
+      const sa = 0.35 + h(i * 5.3) * 0.65;
+      const sr = h(i * 2.7) > 0.93 ? 1.4 : 0.6;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${sa.toFixed(2)})`;
+      ctx.fill();
+    }
+
+    // Moon + halo
+    const mx = W * 0.82, my = H * 0.13;
+    ctx.save();
+    ctx.shadowColor = 'rgba(180,210,255,0.8)';
+    ctx.shadowBlur  = 45;
+    ctx.beginPath();
+    ctx.arc(mx, my, 16, 0, Math.PI * 2);
+    ctx.fillStyle = '#f0f4ff';
+    ctx.fill();
+    ctx.restore();
+    const halo = ctx.createRadialGradient(mx, my, 0, mx, my, 90);
+    halo.addColorStop(0.15, 'rgba(180,210,255,0.10)');
+    halo.addColorStop(1,    'rgba(0,0,0,0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(mx - 90, my - 90, 180, 180);
+
+    // Horizon city glow (light pollution)
+    const cg = ctx.createLinearGradient(0, H * 0.56, 0, H * 0.82);
+    cg.addColorStop(0, 'rgba(0,0,0,0)');
+    cg.addColorStop(1, 'rgba(255,130,40,0.20)');
+    ctx.fillStyle = cg;
+    ctx.fillRect(0, H * 0.56, W, H * 0.26);
+
+    // Atmosphere haze
+    const hz = ctx.createLinearGradient(0, H * 0.50, 0, H * 0.74);
+    hz.addColorStop(0, 'rgba(20,30,60,0)');
+    hz.addColorStop(1, 'rgba(30,40,70,0.32)');
+    ctx.fillStyle = hz;
+    ctx.fillRect(0, H * 0.50, W, H * 0.24);
+
+    // Building helper (color, window fill fraction)
+    const drawB = (x, top, w, bh, col, litFrac) => {
+      ctx.fillStyle = col;
+      ctx.fillRect(x, top, w, bh);
+      const wW = 4, wH = 6, gapX = 9, gapY = 11, padX = 5, padY = 6;
+      const cols = Math.max(1, Math.floor((w - padX * 2) / gapX));
+      const rows = Math.max(1, Math.floor((bh - padY * 2) / gapY));
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (h(x * 0.31 + c * 11.7 + top * 0.19 + r * 7.3) < litFrac) {
+            const warm = h(c * 4.1 + r * 3.7 + x * 0.1);
+            ctx.fillStyle = warm > 0.72
+              ? 'rgba(255,240,150,0.95)'
+              : warm > 0.38 ? 'rgba(255,255,200,0.85)' : 'rgba(180,220,255,0.80)';
+            ctx.fillRect(x + padX + c * gapX, top + padY + r * gapY, wW, wH);
+          }
+        }
+      }
+    };
+
+    // Background buildings
+    [[0,H,58,180],[58,H,42,150],[100,H,72,238],[172,H,48,170],
+     [220,H,88,272],[308,H,52,190],[360,H,78,228],[440,H,44,165],
+     [484,H,82,260],[566,H,62,205],[628,H,48,158],[676,H,96,288],
+     [772,H,58,200],[830,H,68,244],[898,H,76,182],[974,H,44,170],
+    ].forEach(([x,base,w,bh]) => drawB(x, base-bh, w, bh, '#090d18', 0.06));
+
+    // Mid-ground buildings
+    [[10,H,52,208],[62,H,60,268],[122,H,46,234],[168,H,82,308],
+     [250,H,48,252],[298,H,72,292],[370,H,44,214],[414,H,90,362],
+     [504,H,58,258],[562,H,52,238],[614,H,76,302],[690,H,46,198],
+     [736,H,82,340],[818,H,54,222],[872,H,70,288],[942,H,56,212],
+    ].forEach(([x,base,w,bh]) => drawB(x, base-bh, w, bh, '#0d1220', 0.18));
+
+    // Foreground towers
+    [[5,H,48,202,false],[53,H,62,292,false],[115,H,42,258,false],
+     [157,H,80,372,true],[237,H,52,278,false],[289,H,70,328,false],
+     [359,H,44,228,false],[403,H,90,428,true],[493,H,58,282,false],
+     [551,H,48,252,false],[599,H,78,352,false],[677,H,44,212,false],
+     [721,H,84,395,true],[805,H,52,262,false],[857,H,72,318,false],
+     [929,H,58,238,false],[987,H,40,188,false],
+    ].forEach(([x,base,w,bh,tower]) => {
+      drawB(x, base-bh, w, bh, '#10141f', 0.42);
+      if (tower) {
+        ctx.fillStyle = '#0b0f1a';
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.35, base - bh);
+        ctx.lineTo(x + w / 2,    base - bh - 52);
+        ctx.lineTo(x + w * 0.65, base - bh);
+        ctx.fill();
+        const bc = ctx.createRadialGradient(x+w/2, base-bh-52, 0, x+w/2, base-bh-52, 7);
+        bc.addColorStop(0,   'rgba(255,55,55,1)');
+        bc.addColorStop(0.5, 'rgba(255,70,70,0.5)');
+        bc.addColorStop(1,   'rgba(0,0,0,0)');
+        ctx.fillStyle = bc;
+        ctx.fillRect(x+w/2-7, base-bh-59, 14, 14);
+      }
+    });
+
+    // Ground / wet street
+    const st = ctx.createLinearGradient(0, H * 0.80, 0, H);
+    st.addColorStop(0, '#0e1119');
+    st.addColorStop(1, '#06080d');
+    ctx.fillStyle = st;
+    ctx.fillRect(0, H * 0.80, W, H * 0.20);
+
+    // Wet-road light reflections
+    for (let i = 0; i < 14; i++) {
+      const rx = h(i * 8.3 + 100) * W, rl = 14 + h(i * 4.7) * 28;
+      const rg = ctx.createRadialGradient(rx, H * 0.91, 0, rx, H * 0.91, rl);
+      rg.addColorStop(0,   'rgba(255,200,80,0.38)');
+      rg.addColorStop(0.4, 'rgba(255,160,40,0.14)');
+      rg.addColorStop(1,   'rgba(0,0,0,0)');
+      ctx.fillStyle = rg;
+      ctx.fillRect(rx - rl, H * 0.86, rl * 2, H * 0.14);
+    }
+
+    return new THREE.CanvasTexture(cv);
+  }
+
+  /* ── Procedural plaster wall texture ─────────────────────────── */
+  _buildWallTexture() {
     const W = 1024, H = 1024;
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
 
-    // Base warm wood tone
-    ctx.fillStyle = '#b8884e';
+    // Warm off-white base
+    ctx.fillStyle = '#f3f0eb';
     ctx.fillRect(0, 0, W, H);
 
-    const plankH = 96;
+    // Micro plaster variation via layered sine noise
+    const noise = (x, y) =>
+      Math.sin(x * 0.038 + y * 0.029) * Math.cos(x * 0.021 - y * 0.043)
+      + Math.sin(x * 0.082 + y * 0.071) * 0.45;
+
+    const step = 4;
+    for (let y = 0; y < H; y += step) {
+      for (let x = 0; x < W; x += step) {
+        const n = noise(x, y);
+        if (n > 0.28) {
+          ctx.fillStyle = `rgba(0,0,0,${((n - 0.28) * 0.045).toFixed(3)})`;
+          ctx.fillRect(x, y, step, step);
+        } else if (n < -0.55) {
+          ctx.fillStyle = `rgba(255,255,255,${((-n - 0.55) * 0.06).toFixed(3)})`;
+          ctx.fillRect(x, y, step, step);
+        }
+      }
+    }
+
+    // Very faint vertical brush strokes (typical of roller-painted walls)
+    for (let x = 0; x < W; x += 18) {
+      const a = (Math.sin(x * 0.41) * 0.3 + 0.5) * 0.012;
+      ctx.strokeStyle = `rgba(0,0,0,${a.toFixed(3)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.sin(x * 0.07) * 6, 0);
+      ctx.lineTo(x + Math.sin(x * 0.07 + 3) * 8, H);
+      ctx.stroke();
+    }
+
+    return new THREE.CanvasTexture(cv);
+  }
+
+  /* ── Procedural wood floor texture ───────────────────────────── */
+  _buildWoodTexture() {
+    const W = 2048, H = 2048;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+
+    const plankH  = 160;
     const numPlanks = Math.ceil(H / plankH);
+    // Per-plank tone palette (warm oaks)
+    const tones = [172, 154, 186, 162, 176, 148, 182, 158, 168];
 
     for (let row = 0; row < numPlanks; row++) {
       const y0 = row * plankH;
-      // Slight color variation per plank
-      const tone = 170 + Math.floor(Math.sin(row * 1.7) * 20);
-      ctx.fillStyle = `rgb(${tone},${Math.floor(tone * 0.72)},${Math.floor(tone * 0.42)})`;
-      ctx.fillRect(0, y0 + 2, W, plankH - 2);
+      const base = tones[row % tones.length] + Math.floor(Math.sin(row * 2.3) * 14);
 
-      // Horizontal wood grain lines
-      for (let g = y0 + 6; g < y0 + plankH - 4; g += 4 + (row * 13 % 5)) {
-        const alpha = 0.025 + (g % 7) * 0.006;
-        ctx.strokeStyle = `rgba(0,0,0,${alpha})`;
-        ctx.lineWidth = 1;
+      // Plank base colour
+      ctx.fillStyle = `rgb(${base},${Math.floor(base * 0.64)},${Math.floor(base * 0.37)})`;
+      ctx.fillRect(0, y0 + 3, W, plankH - 3);
+
+      // Subtle highlight band across plank (simulates lacquer sheen)
+      const hl = ctx.createLinearGradient(0, y0 + plankH * 0.12, 0, y0 + plankH * 0.45);
+      hl.addColorStop(0,   'rgba(255,248,220,0)');
+      hl.addColorStop(0.5, 'rgba(255,248,220,0.07)');
+      hl.addColorStop(1,   'rgba(255,248,220,0)');
+      ctx.fillStyle = hl;
+      ctx.fillRect(0, y0, W, plankH);
+
+      // Grain lines — multi-frequency bezier curves
+      for (let g = y0 + 10; g < y0 + plankH - 8; g += 2 + (row * 11 % 4)) {
+        const f1 = 0.003 + (row * 7  % 3) * 0.0012;
+        const f2 = 0.007 + (row * 13 % 4) * 0.0018;
+        const al = 0.018 + (g % 6) * 0.005;
+        ctx.strokeStyle = `rgba(0,0,0,${al.toFixed(3)})`;
+        ctx.lineWidth = (g % 9 === 0) ? 2 : 1;
         ctx.beginPath();
         ctx.moveTo(0, g);
-        ctx.bezierCurveTo(W * 0.3, g + (Math.sin(g) * 1.5), W * 0.7, g - (Math.cos(g) * 1.5), W, g);
+        ctx.bezierCurveTo(
+          W * 0.25, g + Math.sin(g * f1) * 4 + Math.cos(g * f2) * 2,
+          W * 0.75, g - Math.sin(g * f1 + 1) * 3.5 + Math.sin(g * f2 * 1.6) * 1.5,
+          W,        g + Math.cos(g * f1 * 0.8) * 3
+        );
         ctx.stroke();
       }
 
-      // Plank gap (dark line)
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.fillRect(0, y0, W, 2);
+      // Knot (every 5th plank, offset)
+      if (row % 5 === 2) {
+        const kx = W * (0.22 + (row * 0.29 % 0.56));
+        const ky = y0 + plankH * 0.48;
+        const kr = 10 + (row % 8);
+        const kg = ctx.createRadialGradient(kx, ky, 0, kx, ky, kr * 2.8);
+        kg.addColorStop(0,   'rgba(50,24,8,0.92)');
+        kg.addColorStop(0.3, 'rgba(72,40,16,0.55)');
+        kg.addColorStop(0.7, 'rgba(95,58,24,0.22)');
+        kg.addColorStop(1,   'rgba(0,0,0,0)');
+        ctx.fillStyle = kg;
+        ctx.beginPath();
+        ctx.ellipse(kx, ky, kr, kr * 0.65, 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        // Grain rings around knot
+        for (let ri = 1; ri <= 3; ri++) {
+          ctx.strokeStyle = `rgba(0,0,0,${(0.08 - ri * 0.02).toFixed(2)})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.ellipse(kx, ky, kr * (1 + ri * 0.6), kr * (0.65 + ri * 0.4), 0.35, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
 
-      // Vertical board seam offset per row
-      const seam = (row % 3) * (W / 3) + (row % 2) * (W / 6);
-      ctx.fillStyle = 'rgba(0,0,0,0.18)';
-      ctx.fillRect(seam, y0, 2, plankH);
-      if (seam + W / 3 < W) ctx.fillRect(seam + W / 3, y0, 2, plankH);
+      // Plank gap (dark seam)
+      ctx.fillStyle = 'rgba(0,0,0,0.42)';
+      ctx.fillRect(0, y0, W, 3);
+
+      // Staggered vertical board seams
+      const seamOff = (row % 4) * Math.floor(W / 4);
+      ctx.fillStyle = 'rgba(0,0,0,0.20)';
+      [0, W / 3, (W * 2) / 3].forEach(s => {
+        const sx = (s + seamOff) % W;
+        ctx.fillRect(sx, y0 + 3, 2, plankH - 3);
+      });
     }
 
     return new THREE.CanvasTexture(cv);
@@ -170,84 +390,147 @@ class RoomScene {
 
   /* ── Room geometry ────────────────────────────────────────────── */
   _buildRoom() {
+    // Shared textured wall material
+    const wallTex = this._buildWallTexture();
+    wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
+    wallTex.repeat.set(2, 2);
     const wallMat = new THREE.MeshStandardMaterial({
-      color:     0xf3f0ec,
-      roughness: 0.94,
+      map:       wallTex,
+      color:     0xf5f2ed,
+      roughness: 0.92,
       metalness: 0.0,
     });
 
-    // Wood floor
+    // City skyline material (self-lit, used for both window views)
+    const cityTex = this._buildCityTexture();
+    const cityMat = new THREE.MeshBasicMaterial({ map: cityTex });
+
+    // Window opening dimensions (world-space)
+    const winW = 2.6, winH = 2.0;
+    const winCY = 1.3, winCZ = -0.5;
+
+    const wallTotH = 6.5, wallTotW = 14, wallCY = 1.2;
+    const wallTop = wallCY + wallTotH / 2;  //  4.45
+    const wallBot = wallCY - wallTotH / 2;  // -2.05
+    const wallL   = winCZ  - wallTotW / 2;  // -7.5
+    const wallR   = winCZ  + wallTotW / 2;  //  6.5
+
+    const winTop = winCY + winH / 2;  //  2.3
+    const winBot = winCY - winH / 2;  //  0.3
+    const winL   = winCZ - winW / 2;  // -1.8
+    const winR   = winCZ + winW / 2;  //  0.8
+
+    const sidePW = (wallTotW - winW) / 2;   // 5.7
+    const topPH  = wallTop - winTop;         // 2.15
+    const botPH  = winBot  - wallBot;        // 2.35
+
+    // Helper: add a wall panel
+    const addPanel = (geo, rotY, x, y, z, mat) => {
+      const m = new THREE.Mesh(geo, (mat || wallMat).clone());
+      m.rotation.y = rotY;
+      m.position.set(x, y, z);
+      m.receiveShadow = true;
+      this.scene.add(m);
+    };
+
+    // ── Wood floor ────────────────────────────────────────────────
     const woodTex = this._buildWoodTexture();
     woodTex.wrapS = woodTex.wrapT = THREE.RepeatWrapping;
     woodTex.repeat.set(3, 3);
     const floorMat = new THREE.MeshStandardMaterial({
       map:       woodTex,
-      roughness: 0.80,
-      metalness: 0.02,
+      roughness: 0.58,
+      metalness: 0.04,
     });
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), floorMat);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -1.6;
     floor.receiveShadow = true;
     this.scene.add(floor);
 
-    // Ceiling
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), wallMat.clone());
+    // ── Ceiling ────────────────────────────────────────────────────
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), wallMat.clone());
     ceil.rotation.x = Math.PI / 2;
     ceil.position.y = 4.5;
     this.scene.add(ceil);
 
-    // Back wall
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(14, 6.5), wallMat.clone());
-    back.position.set(0, 1.2, -6);
-    this.scene.add(back);
+    // ── Back wall ──────────────────────────────────────────────────
+    addPanel(new THREE.PlaneGeometry(14, 7), 0, 0, 1.2, -6, wallMat);
 
-    // Left wall
-    const left = new THREE.Mesh(new THREE.PlaneGeometry(14, 6.5), wallMat.clone());
-    left.rotation.y = Math.PI / 2;
-    left.position.set(-5, 1.2, -0.5);
-    this.scene.add(left);
+    // ── LEFT WALL — 4 panels around window ────────────────────────
+    const lRot = Math.PI / 2;
+    addPanel(new THREE.PlaneGeometry(wallTotW, topPH), lRot, -5, winTop + topPH / 2, winCZ);          // top
+    addPanel(new THREE.PlaneGeometry(wallTotW, botPH), lRot, -5, wallBot + botPH / 2, winCZ);         // bottom
+    addPanel(new THREE.PlaneGeometry(sidePW,   winH),  lRot, -5, winCY, wallL + sidePW / 2);          // left side
+    addPanel(new THREE.PlaneGeometry(sidePW,   winH),  lRot, -5, winCY, wallR - sidePW / 2);          // right side
 
-    // Right wall
-    const right = new THREE.Mesh(new THREE.PlaneGeometry(14, 6.5), wallMat.clone());
-    right.rotation.y = -Math.PI / 2;
-    right.position.set(5, 1.2, -0.5);
-    this.scene.add(right);
+    // City view plane behind left window (slightly offset outward)
+    const lCity = new THREE.Mesh(new THREE.PlaneGeometry(winW + 0.6, winH + 0.5), cityMat.clone());
+    lCity.rotation.y = lRot;
+    lCity.position.set(-5.5, winCY, winCZ);
+    this.scene.add(lCity);
 
-    // ── Ceiling skylight / window panel ──────────────────────────
-    const slW = 3.0, slD = 2.2;
-    const ceilY = 4.48;
+    // ── RIGHT WALL — 4 panels around window ───────────────────────
+    const rRot = -Math.PI / 2;
+    addPanel(new THREE.PlaneGeometry(wallTotW, topPH), rRot,  5, winTop + topPH / 2, winCZ);          // top
+    addPanel(new THREE.PlaneGeometry(wallTotW, botPH), rRot,  5, wallBot + botPH / 2, winCZ);         // bottom
+    addPanel(new THREE.PlaneGeometry(sidePW,   winH),  rRot,  5, winCY, wallL + sidePW / 2);          // left side
+    addPanel(new THREE.PlaneGeometry(sidePW,   winH),  rRot,  5, winCY, wallR - sidePW / 2);          // right side
 
-    // Bright frosted glass panel (emissive white)
+    // City view plane behind right window
+    const rCity = new THREE.Mesh(new THREE.PlaneGeometry(winW + 0.6, winH + 0.5), cityMat.clone());
+    rCity.rotation.y = rRot;
+    rCity.position.set(5.5, winCY, winCZ);
+    this.scene.add(rCity);
+
+    // ── Window frames (slim dark metal) ───────────────────────────
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.28, metalness: 0.72 });
+    const fD = 0.06, fW = 0.07; // depth (into room), bar width
+
+    const addFrame = (wx) => {
+      const sx = wx < 0 ? 1 : -1; // sign toward room interior
+      const ex = wx + sx * fD / 2;
+      [
+        // [x, y, z,  BoxGeometry(w, h, d)]
+        [ex, winTop, winCZ,  winW + fW * 2, fW, fD],  // top bar
+        [ex, winBot, winCZ,  winW + fW * 2, fW, fD],  // bottom bar
+        [ex, winCY,  winL,   fD, winH + fW * 2, fW],  // left upright
+        [ex, winCY,  winR,   fD, winH + fW * 2, fW],  // right upright
+        [ex, winCY,  winCZ,  winW, fW, fD],            // mid horizontal
+        [ex, winCY,  winCZ,  fD, winH, fW],            // mid vertical
+      ].forEach(([fx, fy, fz, bw, bh, bd]) => {
+        const fb = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), frameMat);
+        fb.position.set(fx, fy, fz);
+        this.scene.add(fb);
+      });
+    };
+    addFrame(-5);
+    addFrame( 5);
+
+    // ── Ceiling skylight ──────────────────────────────────────────
+    const slW = 3.0, slD = 2.2, ceilY = 4.48;
     const glassMat = new THREE.MeshBasicMaterial({ color: 0xfff9f0 });
     const glassPane = new THREE.Mesh(new THREE.PlaneGeometry(slW, slD), glassMat);
     glassPane.rotation.x = Math.PI / 2;
     glassPane.position.set(0, ceilY, -0.5);
     this.scene.add(glassPane);
 
-    // Metal frame around the skylight (4 bars)
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.5, metalness: 0.6 });
+    const slFrMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.5, metalness: 0.6 });
     const fw = 0.07, fh = 0.12;
-    const frameData = [
-      { pos: [0, ceilY + 0.01, -0.5 + slD / 2],   size: [slW + fw * 2, fh, fw] },
-      { pos: [0, ceilY + 0.01, -0.5 - slD / 2],   size: [slW + fw * 2, fh, fw] },
-      { pos: [ slW / 2, ceilY + 0.01, -0.5],       size: [fw, fh, slD] },
-      { pos: [-slW / 2, ceilY + 0.01, -0.5],       size: [fw, fh, slD] },
-      // Cross bar
-      { pos: [0, ceilY + 0.01, -0.5],              size: [slW, fh, fw] },
-    ];
-    frameData.forEach(({ pos, size }) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(...size), frameMat);
+    [
+      { pos: [0, ceilY + 0.01, -0.5 + slD / 2], size: [slW + fw * 2, fh, fw] },
+      { pos: [0, ceilY + 0.01, -0.5 - slD / 2], size: [slW + fw * 2, fh, fw] },
+      { pos: [ slW / 2, ceilY + 0.01, -0.5],    size: [fw, fh, slD] },
+      { pos: [-slW / 2, ceilY + 0.01, -0.5],    size: [fw, fh, slD] },
+      { pos: [0,         ceilY + 0.01, -0.5],    size: [slW, fh, fw] },
+    ].forEach(({ pos, size }) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(...size), slFrMat);
       m.position.set(...pos);
       this.scene.add(m);
     });
 
-    // Lamp housing recessed into ceiling around the skylight
     const housingMat = new THREE.MeshStandardMaterial({ color: 0xd8d4ce, roughness: 0.9 });
-    const housing = new THREE.Mesh(
-      new THREE.BoxGeometry(slW + 0.4, 0.18, slD + 0.4),
-      housingMat
-    );
+    const housing = new THREE.Mesh(new THREE.BoxGeometry(slW + 0.4, 0.18, slD + 0.4), housingMat);
     housing.position.set(0, ceilY + 0.09, -0.5);
     this.scene.add(housing);
   }
@@ -353,8 +636,17 @@ class RoomScene {
     sideFill.position.set(-4, 1.5, 0);
     this.scene.add(sideFill);
 
-    // Warm ambient (gallery daylight feel)
-    this.scene.add(new THREE.AmbientLight(0xddd9d0, 3.5));
+    // Warm ambient
+    this.scene.add(new THREE.AmbientLight(0xddd9d0, 3.0));
+
+    // Cool moonlight bleeding in from side windows
+    const lWin = new THREE.PointLight(0x5878b8, 1.1, 8, 2);
+    lWin.position.set(-4.0, 1.3, -0.5);
+    this.scene.add(lWin);
+
+    const rWin = new THREE.PointLight(0x5878b8, 1.1, 8, 2);
+    rWin.position.set( 4.0, 1.3, -0.5);
+    this.scene.add(rWin);
   }
 
   /* ── Holographic labels ───────────────────────────────────────── */
