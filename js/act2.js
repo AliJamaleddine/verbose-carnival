@@ -83,32 +83,32 @@ class RoomScene {
     ec.width = W; ec.height = H;
     const ectx = ec.getContext('2d');
 
-    // Warm white base
-    ectx.fillStyle = '#f2f0e8';
+    // Warm white base — the gallery room the sphere sits in
+    ectx.fillStyle = '#f0eee6';
     ectx.fillRect(0, 0, W, H);
 
-    // Bright warm ceiling (top of equirect = top of sphere reflection)
-    const topLight = ectx.createRadialGradient(W / 2, 0, 0, W / 2, 0, W * 0.4);
-    topLight.addColorStop(0,   'rgba(255, 248, 220, 0.9)');
-    topLight.addColorStop(0.5, 'rgba(240, 230, 200, 0.4)');
-    topLight.addColorStop(1,   'rgba(0,   0,   0,   0)');
-    ectx.fillStyle = topLight;
-    ectx.fillRect(0, 0, W, H * 0.5);
+    // Skylight: bright warm rectangle near top-centre (like the skylight in reference image)
+    const skylight = ectx.createRadialGradient(W * 0.5, H * 0.08, 0, W * 0.5, H * 0.08, W * 0.22);
+    skylight.addColorStop(0,   'rgba(255, 252, 240, 1.0)');
+    skylight.addColorStop(0.5, 'rgba(245, 240, 220, 0.5)');
+    skylight.addColorStop(1,   'rgba(0,   0,   0,   0)');
+    ectx.fillStyle = skylight;
+    ectx.fillRect(0, 0, W, H * 0.3);
 
-    // Subtle floor shadow at the bottom of the sphere reflection
-    const botLight = ectx.createRadialGradient(W / 2, H, 0, W / 2, H, W * 0.35);
-    botLight.addColorStop(0,   'rgba(60, 50, 40, 0.35)');
-    botLight.addColorStop(0.6, 'rgba(60, 50, 40, 0.10)');
+    // Warm wooden floor reflection at the bottom
+    const botLight = ectx.createRadialGradient(W / 2, H, 0, W / 2, H, W * 0.4);
+    botLight.addColorStop(0,   'rgba(160, 120, 70, 0.45)');
+    botLight.addColorStop(0.5, 'rgba(140, 100, 55, 0.15)');
     botLight.addColorStop(1,   'rgba(0, 0, 0, 0)');
     ectx.fillStyle = botLight;
-    ectx.fillRect(0, H * 0.6, W, H * 0.4);
+    ectx.fillRect(0, H * 0.55, W, H * 0.45);
 
-    // Cool blue-grey side accent (gives the silver sphere depth)
-    const sideLight = ectx.createRadialGradient(W * 0.12, H * 0.5, 0, W * 0.12, H * 0.5, W * 0.28);
-    sideLight.addColorStop(0, 'rgba(160, 175, 210, 0.55)');
+    // Soft side walls (cool-neutral)
+    const sideLight = ectx.createRadialGradient(W * 0.1, H * 0.5, 0, W * 0.1, H * 0.5, W * 0.3);
+    sideLight.addColorStop(0, 'rgba(210, 210, 215, 0.5)');
     sideLight.addColorStop(1, 'rgba(0,   0,   0,   0)');
     ectx.fillStyle = sideLight;
-    ectx.fillRect(0, 0, W * 0.45, H);
+    ectx.fillRect(0, 0, W * 0.4, H);
 
     const envTexture = new THREE.CanvasTexture(ec);
     envTexture.mapping = THREE.EquirectangularReflectionMapping;
@@ -170,10 +170,10 @@ class RoomScene {
     const geo = new THREE.SphereGeometry(1, 64, 64);
 
     this._sphereMat = new THREE.MeshStandardMaterial({
-      color:            0xf0f0f0,
-      metalness:        0.95,
-      roughness:        0.04,
-      envMapIntensity:  2.2,
+      color:            0x060606,
+      metalness:        0.12,
+      roughness:        0.68,
+      envMapIntensity:  0.5,
       emissive:         new THREE.Color(0x000000),
       emissiveIntensity: 0,
     });

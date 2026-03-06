@@ -19,6 +19,9 @@ class UniverseScene {
     this._camPhi    = Math.PI * 0.48;
     this._camRadius = 7.5;
 
+    this._warpTime    = 0;
+    this._starOrigins = null;
+
     this._setupRenderer();
     this._setupScene();
     this._buildStars();
@@ -57,28 +60,27 @@ class UniverseScene {
 
   /* ── Stars particle field ─────────────────────────────────────── */
   _buildStars() {
-    const COUNT     = 8000;
+    const COUNT     = 10000;
     const positions = new Float32Array(COUNT * 3);
-    const alphas    = new Float32Array(COUNT);
 
     for (let i = 0; i < COUNT; i++) {
-      // Uniform sphere distribution
       const u     = Math.random();
       const v     = Math.random();
       const theta = 2 * Math.PI * u;
       const phi   = Math.acos(2 * v - 1);
-      const r     = 150 + Math.random() * 250;
+      const r     = 180 + Math.random() * 220;
 
       positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
       positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
       positions[i * 3 + 2] = r * Math.cos(phi);
-      alphas[i]            = 0.4 + Math.random() * 0.6;
     }
+
+    // Store originals for the black-hole vortex effect during zoom
+    this._starOrigins = new Float32Array(positions);
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-    // Simple star texture
     const starCanvas = document.createElement('canvas');
     starCanvas.width  = 32;
     starCanvas.height = 32;
@@ -90,57 +92,148 @@ class UniverseScene {
     sc.fillStyle = sg;
     sc.fillRect(0, 0, 32, 32);
 
-    const starTex = new THREE.CanvasTexture(starCanvas);
-
     const mat = new THREE.PointsMaterial({
-      map:            starTex,
-      size:           0.7,
+      map:             new THREE.CanvasTexture(starCanvas),
+      size:            0.9,
       sizeAttenuation: true,
-      transparent:    true,
-      opacity:        0.85,
-      depthWrite:     false,
+      transparent:     true,
+      opacity:         0.95,
+      depthWrite:      false,
     });
 
     this._stars = new THREE.Points(geo, mat);
     this.scene.add(this._stars);
   }
 
-  /* ── Shared elevation data (Float32Array) ────────────────────── */
-  _generateElevation(W, H) {
-    const elev = new Float32Array(W * H);
-    for (let y = 0; y < H; y++) {
-      const latAbs = Math.abs(y / H - 0.5) * 2.0;
-      for (let x = 0; x < W; x++) {
-        const nx = (x / W) * 6.2;
-        const ny = (y / H) * 3.1;
-
-        // Domain-warped FBM — organic continent shapes
-        const wx = NoiseUtils.fbm(nx,       ny,       4) * 2.1;
-        const wy = NoiseUtils.fbm(nx + 5.2, ny + 1.3, 4) * 2.1;
-        let e = NoiseUtils.fbm(nx + wx, ny + wy, 8);
-
-        // Ridge noise — sharp mountain spines
-        const ridge  = NoiseUtils.ridgedFbm(nx * 1.7 + 3.1, ny * 1.7 + 7.4, 6);
-        // Secondary ridges at a different angle for cross-range texture
-        const ridge2 = NoiseUtils.ridgedFbm(nx * 2.3 + 9.8, ny * 1.1 + 2.5, 4);
-        e = e * 0.55 + ridge * 0.32 + ridge2 * 0.13;
-
-        // Fine micro-relief detail
-        const micro = NoiseUtils.fbm(nx * 5.5 + 21.3, ny * 5.5 + 8.7, 3) * 0.06;
-        e = Math.max(0, Math.min(1, e + micro));
-
-        // Polar ice caps
-        const polarBlend = Math.max(0, (latAbs - 0.80) / 0.20);
-        e = e * (1 - polarBlend) + 0.94 * polarBlend;
-
-        elev[y * W + x] = e;
-      }
-    }
-    return elev;
+  /* ── Mountain range helper ─────────────────────────────────────── */
+  _mountainRange(lon, lat, cx, cy, rx, ry) {
+    let dlon = lon - cx;
+    if (dlon >  180) dlon -= 360;
+    if (dlon < -180) dlon += 360;
+    const dlat = lat - cy;
+    const d = Math.sqrt((dlon / rx) * (dlon / rx) + (dlat / ry) * (dlat / ry));
+    return Math.max(0, 1 - d);
   }
 
-  /* ── Color texture from elevation ────────────────────────────── */
-  _generateEarthTexture(elev, W, H) {
+  /* ── Geography: continent land mask + elevation ───────────────── */
+  _generateGeography(W, H) {
+    const elev    = new Float32Array(W * H);
+    const landMap = new Float32Array(W * H);
+
+    // Continent ellipses: [cx_lon, cy_lat, rx_lon, ry_lat, weight]
+    // Placed at geographically accurate positions so continents are recognisable
+    const continents = [
+      // ── North America ──────────────────────────────────────────
+      [-108, 54,  50, 20, 1.0],  // main body
+      [ -95, 32,  30, 14, 0.9],  // southern US / Mexico
+      [ -84, 12,  10,  7, 0.8],  // Central America
+      // ── South America ─────────────────────────────────────────
+      [ -58, -10, 22, 32, 1.0],
+      [ -65,   8, 12,  8, 0.85],
+      // ── Europe ────────────────────────────────────────────────
+      [   8,  52, 16, 12, 0.9],
+      [  15,  64,  9, 10, 0.8],  // Scandinavia
+      [  -4,  40,  6,  5, 0.8],  // Iberia
+      [  12,  43,  4,  7, 0.75], // Italy
+      [  -2,  54,  3,  4, 0.7],  // British Isles
+      [  26,  57, 10,  9, 0.8],  // East Europe / Baltics
+      // ── Africa ────────────────────────────────────────────────
+      [  18,   5, 30, 36, 1.0],
+      [  14,  24, 26, 10, 0.9],  // North Africa (wider)
+      [  26, -28, 15, 10, 0.9],  // Southern Africa narrowing
+      [  44,   9,  8,  8, 0.8],  // Horn of Africa
+      // ── Middle East ────────────────────────────────────────────
+      [  46,  26, 14, 11, 0.9],
+      // ── Asia (vast) ────────────────────────────────────────────
+      [  78,  58, 60, 18, 0.9],  // Russia / Siberia
+      [  78,  20, 15, 22, 1.0],  // Indian subcontinent
+      [ 110,  34, 22, 20, 1.0],  // China
+      [ 135,  36,  3,  9, 0.8],  // Japan
+      [ 103,  14, 10, 16, 0.85], // SE Asia mainland
+      [ 118,   2, 14,  5, 0.7],  // Indonesia (broad)
+      [ 115,  -6, 10,  4, 0.7],
+      [ 140,  -5,  8,  4, 0.75], // New Guinea
+      // ── Australia ──────────────────────────────────────────────
+      [ 134, -27, 20, 16, 1.0],
+      // ── Greenland & islands ────────────────────────────────────
+      [ -41,  72, 14, 10, 0.95],
+      [ -19,  65,  3,  2, 0.7],  // Iceland
+      [  47, -20,  3,  7, 0.8],  // Madagascar
+      [ 172, -42,  2,  5, 0.65], // New Zealand
+    ];
+
+    for (let y = 0; y < H; y++) {
+      const lat    = (1 - y / H) * 180 - 90;  // +90 top, -90 bottom
+      const latAbs = Math.abs(lat) / 90;
+
+      for (let x = 0; x < W; x++) {
+        const lon = (x / W) * 360 - 180;
+
+        // Land score from continent ellipses
+        let landScore = 0;
+        for (const [cx, cy, rx, ry, w] of continents) {
+          let dlon = lon - cx;
+          if (dlon >  180) dlon -= 360;
+          if (dlon < -180) dlon += 360;
+          const dlat = lat - cy;
+          const dist = Math.sqrt((dlon / rx) * (dlon / rx) + (dlat / ry) * (dlat / ry));
+          landScore  = Math.max(landScore, Math.max(0, 1 - dist) * w);
+        }
+
+        // Antarctica
+        if (lat < -64) {
+          landScore = Math.max(landScore, Math.min(1, (-lat - 64) / 24));
+        }
+
+        // Coastal noise for organic-looking shorelines
+        const nx    = (x / W) * 9.0;
+        const ny    = (y / H) * 4.5;
+        const noise = NoiseUtils.fbm(nx + 50.3, ny + 22.7, 4) * 0.5 - 0.25;
+        const noisy = Math.max(0, Math.min(1, landScore + noise * 0.38));
+
+        landMap[y * W + x] = noisy > 0.40 ? 1 : 0;
+
+        // ── Elevation ─────────────────────────────────────────────
+        let e;
+        if (noisy <= 0.40) {
+          // Ocean depth from land distance
+          e = 0.10 + noisy * 0.55;
+        } else {
+          // Base terrain noise
+          const tnx = (x / W) * 6 + 5.1;
+          const tny = (y / H) * 3 + 5.1;
+          e = 0.52 + NoiseUtils.fbm(tnx, tny, 5) * 0.16;
+
+          // Named mountain ranges stacked as elevation bumps
+          const mtn = Math.max(
+            this._mountainRange(lon, lat, -116, 46,  8, 18),  // Rockies
+            this._mountainRange(lon, lat,  -78, 42,  5, 13),  // Appalachians
+            this._mountainRange(lon, lat,  -70,-24,  5, 34),  // Andes
+            this._mountainRange(lon, lat,    9, 46,  6,  4),  // Alps
+            this._mountainRange(lon, lat,   84, 29, 18,  5),  // Himalayas
+            this._mountainRange(lon, lat,   92, 34, 14, 10),  // Tibetan plateau
+            this._mountainRange(lon, lat,   60, 58,  3, 18),  // Urals
+            this._mountainRange(lon, lat,   36,  5,  4, 16),  // E. Africa highlands
+            this._mountainRange(lon, lat,   -3, 32, 12,  4),  // Atlas
+            this._mountainRange(lon, lat,   44, 42, 10,  3),  // Caucasus
+            this._mountainRange(lon, lat,  127, 35,  3,  8)   // Japan Alps
+          );
+          e += mtn * 0.38;
+        }
+
+        // Polar ice caps force high elevation
+        if (lat >  78) e = Math.max(e, 0.75 + (lat  - 78) / 12 * 0.18);
+        if (lat < -64) e = Math.max(e, 0.75 + (-lat - 64) / 26 * 0.18);
+
+        elev[y * W + x] = Math.max(0, Math.min(1, e));
+      }
+    }
+
+    return { elev, landMap };
+  }
+
+  /* ── Color texture using biome / geography logic ──────────────── */
+  _generateEarthTexture(elev, landMap, W, H) {
     const canvas = document.createElement('canvas');
     canvas.width  = W;
     canvas.height = H;
@@ -148,61 +241,122 @@ class UniverseScene {
     const img = ctx.createImageData(W, H);
     const d   = img.data;
 
-    // Photo-matched colour palette (Central-Asia / Himalaya look)
-    const C = {
-      deepSea:   [  6,  16,  52],   // abyssal blue
-      ocean:     [ 12,  42, 105],   // open ocean
-      shallow:   [ 22,  80, 140],   // shelf / shallow
-      coast:     [ 55,  78,  42],   // dark-green coastal plain
-      steppe:    [148, 118,  62],   // tan / ochre steppe (Tibet)
-      highland:  [128,  92,  48],   // mid-brown highland
-      rocky:     [ 88,  68,  38],   // dark rocky ridge base
-      scree:     [118, 102,  84],   // grey-brown scree / talus
-      snowline:  [195, 188, 178],   // grey-white transition
-      snow:      [245, 248, 255],   // pure white peaks
-    };
-
     const lerp3 = (a, b, t) => [
       (a[0] + (b[0] - a[0]) * t + 0.5) | 0,
       (a[1] + (b[1] - a[1]) * t + 0.5) | 0,
       (a[2] + (b[2] - a[2]) * t + 0.5) | 0,
     ];
 
-    const elevToColor = (e) => {
-      if (e < 0.36) return lerp3(C.deepSea,  C.ocean,    e / 0.36);
-      if (e < 0.44) return lerp3(C.ocean,    C.shallow,  (e - 0.36) / 0.08);
-      if (e < 0.49) return lerp3(C.shallow,  C.coast,    (e - 0.44) / 0.05);
-      if (e < 0.56) return lerp3(C.coast,    C.steppe,   (e - 0.49) / 0.07);
-      if (e < 0.65) return lerp3(C.steppe,   C.highland, (e - 0.56) / 0.09);
-      if (e < 0.72) return lerp3(C.highland, C.rocky,    (e - 0.65) / 0.07);
-      if (e < 0.79) return lerp3(C.rocky,    C.scree,    (e - 0.72) / 0.07);
-      if (e < 0.87) return lerp3(C.scree,    C.snowline, (e - 0.79) / 0.08);
-      return lerp3(C.snowline, C.snow, Math.min(1, (e - 0.87) / 0.09));
+    // Ocean palette
+    const deepSea  = [  4,  16,  60];
+    const ocean    = [ 12,  52, 118];
+    const shallow  = [ 25,  90, 155];
+
+    // Biome palettes (land)
+    const tropical = [ 15,  90,  22];   // equatorial rainforest
+    const savanna  = [ 95, 130,  35];   // tropical grassland
+    const desert   = [205, 178, 105];   // Sahara / Arabia
+    const ausOut   = [165,  88,  42];   // Australian outback
+    const steppe   = [148, 122,  58];   // Central Asia steppe
+    const tempFor  = [ 38,  95,  38];   // temperate forest
+    const boreal   = [ 28,  76,  32];   // taiga
+    const tundra   = [120, 110,  82];   // arctic tundra
+    const rock     = [100,  86,  68];   // mountain rock
+    const snowline = [196, 192, 185];   // snow transition
+    const snow     = [242, 246, 255];   // glacier / polar ice
+
+    // Desert zone check: lon/lat boxes
+    const isDesert = (lon, lat) => {
+      if (lat >  14 && lat <  33 && lon > -18 && lon <  36) return 1.0;  // Sahara
+      if (lat >  12 && lat <  32 && lon >  35 && lon <  62) return 0.9;  // Arabian
+      if (lat >  24 && lat <  38 && lon >  45 && lon <  68) return 0.75; // Iranian
+      if (lat >  38 && lat <  50 && lon >  90 && lon < 118) return 0.6;  // Gobi
+      if (lat > -35 && lat < -18 && lon > 116 && lon < 144) return 0.85; // Australian
+      if (lat > -32 && lat < -18 && lon > -74 && lon < -68) return 0.65; // Atacama
+      if (lat >  25 && lat <  40 && lon >-114 && lon <-104) return 0.55; // US southwest
+      return 0;
+    };
+
+    const isTropical = (lon, lat) => {
+      if (Math.abs(lat) > 12) return 0;
+      if (lon > -78 && lon < -46 && lat > -15 && lat < 5)  return 1.0; // Amazon
+      if (lon >  16 && lon <  30 && lat >  -5 && lat < 5)  return 0.9; // Congo
+      if (lon >  95 && lon < 130 && lat >  -8 && lat < 18) return 0.8; // SE Asia
+      return 0.5; // generic equatorial
     };
 
     for (let y = 0; y < H; y++) {
-      const latAbs = Math.abs(y / H - 0.5) * 2.0;
+      const lat    = (1 - y / H) * 180 - 90;
+      const absLat = Math.abs(lat);
+
       for (let x = 0; x < W; x++) {
-        const e = elev[y * W + x];
-        let [r, g, b] = elevToColor(e);
+        const lon  = (x / W) * 360 - 180;
+        const idx  = y * W + x;
+        const e    = elev[idx];
+        const land = landMap[idx] > 0.5;
 
-        // Ocean depth darkening
-        if (e < 0.44) {
-          const depth = 1 - e / 0.44;
-          r = (r * (1 - depth * 0.6) + 0.5) | 0;
-          g = (g * (1 - depth * 0.5) + 0.5) | 0;
-          b = (b * (1 - depth * 0.2) + 0.5) | 0;
+        let r, g, b;
+
+        if (!land) {
+          // ── Ocean ─────────────────────────────────────────────
+          const depth = Math.max(0, Math.min(1, e / 0.32));
+          if (e < 0.22) {
+            [r, g, b] = lerp3(deepSea, ocean, e / 0.22);
+          } else {
+            [r, g, b] = lerp3(ocean, shallow, (e - 0.22) / 0.18);
+          }
+          // Further darken deep ocean
+          const dk = 1 - depth * 0.5;
+          r = (r * dk) | 0; g = (g * dk) | 0; b = (b * dk) | 0;
+
+        } else {
+          // ── Land — mountain/snow override first ───────────────
+          if (e > 0.88) {
+            [r, g, b] = lerp3(snowline, snow, Math.min(1, (e - 0.88) / 0.10));
+          } else if (e > 0.78) {
+            [r, g, b] = lerp3(rock, snowline, (e - 0.78) / 0.10);
+          } else if (e > 0.68) {
+            [r, g, b] = lerp3(steppe, rock, (e - 0.68) / 0.10);
+          } else {
+            // ── Biome by latitude + special zones ─────────────
+            const desertStrength = isDesert(lon, lat);
+            const tropicStrength = isTropical(lon, lat);
+
+            if (absLat > 70) {
+              [r, g, b] = lerp3(tundra, snowline, Math.min(1, (absLat - 70) / 15));
+            } else if (absLat > 60) {
+              [r, g, b] = lerp3(boreal, tundra, (absLat - 60) / 10);
+            } else if (absLat > 50) {
+              [r, g, b] = lerp3(tempFor, boreal, (absLat - 50) / 10);
+            } else if (absLat > 35) {
+              // Temperate — possible desert override
+              if (desertStrength > 0.4) {
+                [r, g, b] = lerp3(tempFor, desert, desertStrength);
+              } else {
+                [r, g, b] = [...tempFor];
+              }
+            } else if (absLat > 20) {
+              // Subtropical — savanna or desert
+              if (desertStrength > 0.3) {
+                [r, g, b] = lerp3(savanna, desert, desertStrength * 0.9);
+              } else if (lon > 116 && lon < 144 && lat < -18 && lat > -35) {
+                // Australian outback
+                [r, g, b] = [...ausOut];
+              } else {
+                [r, g, b] = lerp3(savanna, tempFor, 0.4);
+              }
+            } else {
+              // Tropical
+              if (desertStrength > 0.2) {
+                [r, g, b] = lerp3(tropical, savanna, desertStrength);
+              } else {
+                [r, g, b] = lerp3(savanna, tropical, tropicStrength);
+              }
+            }
+          }
         }
 
-        // Subtle cold-tint at mid-latitudes on land
-        if (e >= 0.49 && latAbs > 0.48 && latAbs < 0.80) {
-          const cold = (latAbs - 0.48) / 0.32;
-          r = (r + (175 - r) * cold * 0.18 + 0.5) | 0;
-          g = (g + (188 - g) * cold * 0.15 + 0.5) | 0;
-          b = (b + (205 - b) * cold * 0.20 + 0.5) | 0;
-        }
-
-        const i = (y * W + x) * 4;
+        const i = idx * 4;
         d[i]     = Math.max(0, Math.min(255, r));
         d[i + 1] = Math.max(0, Math.min(255, g));
         d[i + 2] = Math.max(0, Math.min(255, b));
@@ -212,11 +366,11 @@ class UniverseScene {
 
     ctx.putImageData(img, 0, 0);
 
-    // Sunlit hemisphere soft overlay
+    // Sunlit hemisphere subtle brightening
     const spec = ctx.createRadialGradient(W * 0.30, H * 0.26, 0, W * 0.5, H * 0.5, W * 0.58);
-    spec.addColorStop(0,   'rgba(255,248,228,0.07)');
+    spec.addColorStop(0,   'rgba(255,248,228,0.08)');
     spec.addColorStop(0.5, 'rgba(0,0,0,0)');
-    spec.addColorStop(1,   'rgba(0,0,0,0.30)');
+    spec.addColorStop(1,   'rgba(0,0,0,0.28)');
     ctx.fillStyle = spec;
     ctx.fillRect(0, 0, W, H);
 
@@ -295,8 +449,8 @@ class UniverseScene {
   /* ── Earth sphere ─────────────────────────────────────────────── */
   _buildEarth() {
     const W = 1024, H = 512;
-    const elev      = this._generateElevation(W, H);
-    const earthTex  = this._generateEarthTexture(elev, W, H);
+    const { elev, landMap } = this._generateGeography(W, H);
+    const earthTex  = this._generateEarthTexture(elev, landMap, W, H);
     const normalTex = this._generateNormalMap(elev, W, H);
     const cloudTex  = this._generateCloudTexture();
 
@@ -429,6 +583,29 @@ class UniverseScene {
       this._camTheta = t * 0.025;
       this._camPhi   = Math.PI * 0.46 + Math.sin(t * 0.08) * 0.04;
       this._updateCameraPosition();
+    }
+
+    // ── Black-hole vortex: stars spiral inward during zoom ────────
+    if (this._inTransition && this._stars && this._starOrigins) {
+      this._warpTime += 0.007;
+      const wt  = this._warpTime;
+      const pos = this._stars.geometry.attributes.position;
+      const orig = this._starOrigins;
+
+      for (let i = 0; i < pos.count; i++) {
+        const ox = orig[i * 3];
+        const oy = orig[i * 3 + 1];
+        const oz = orig[i * 3 + 2];
+
+        // Spiral angle accelerates as warp deepens
+        const theta = Math.atan2(ox, oz) + wt * (1.8 + wt * 1.2);
+        // Radius shrinks exponentially toward centre
+        const horizR = Math.sqrt(ox * ox + oz * oz) * Math.exp(-wt * 0.07);
+        const newY   = oy * Math.exp(-wt * 0.04);
+
+        pos.setXYZ(i, Math.sin(theta) * horizR, newY, Math.cos(theta) * horizR);
+      }
+      pos.needsUpdate = true;
     }
 
     this.renderer.render(this.scene, this.camera);
