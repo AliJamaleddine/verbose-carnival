@@ -117,115 +117,167 @@ class UniverseScene {
 
   /* ── Geography: continent land mask + elevation ───────────────── */
   _generateGeography(W, H) {
-    const elev    = new Float32Array(W * H);
+    // ── Step 1: Rasterise continent polygons via canvas ───────────
+    const mc = document.createElement('canvas');
+    mc.width = W; mc.height = H;
+    const mctx = mc.getContext('2d');
+
+    const ll = (lon, lat) => [(lon + 180) / 360 * W, (90 - lat) / 180 * H];
+
+    const fp = pts => {
+      mctx.beginPath();
+      pts.forEach(([lo, la], i) => {
+        const [x, y] = ll(lo, la);
+        i === 0 ? mctx.moveTo(x, y) : mctx.lineTo(x, y);
+      });
+      mctx.closePath();
+      mctx.fill();
+    };
+
+    mctx.fillStyle = '#000';
+    mctx.fillRect(0, 0, W, H);
+    mctx.fillStyle = '#fff';
+
+    // North America
+    fp([[-168,72],[-141,72],[-141,61],[-130,56],[-125,49],
+        [-124,37],[-117,32],[-97,26],[-90,21],[-83,10],
+        [-77,8],[-78,9],[-80,10],[-84,11],[-85,16],
+        [-87,21],[-90,16],[-92,18],[-88,22],[-81,30],
+        [-81,34],[-76,35],[-75,44],[-71,47],[-66,44],
+        [-60,47],[-54,47],[-56,52],[-60,58],[-64,62],
+        [-66,64],[-72,70],[-78,73],[-86,74],[-97,74],
+        [-105,73],[-120,74],[-132,71],[-142,71],[-155,69],
+        [-165,71],[-168,72]]);
+
+    // South America
+    fp([[-77,8],[-63,11],[-60,7],[-53,5],[-50,2],
+        [-35,-6],[-35,-10],[-38,-16],[-40,-22],[-43,-23],
+        [-50,-29],[-53,-33],[-58,-34],[-62,-39],[-65,-42],
+        [-68,-46],[-70,-52],[-68,-56],[-64,-55],[-63,-52],
+        [-66,-46],[-68,-42],[-65,-35],[-60,-30],[-58,-23],
+        [-60,-16],[-60,-10],[-62,-4],[-60,0],[-58,3],
+        [-60,7],[-64,10],[-77,8]]);
+
+    // Europe (including Iberia + Italy peninsulas)
+    fp([[-10,36],[-6,36],[-1,37],[4,44],[8,46],[14,46],
+        [18,46],[22,44],[26,44],[30,46],[28,54],[24,56],
+        [20,60],[18,64],[20,70],[14,70],[10,68],[6,58],
+        [2,56],[-2,50],[-5,48],[-8,44],[-9,39],[-10,36]]);
+
+    // Scandinavia
+    fp([[4,58],[8,56],[12,56],[16,56],[20,60],[22,62],
+        [24,64],[26,68],[28,72],[24,70],[20,70],[16,70],
+        [14,68],[12,64],[10,60],[8,58],[4,58]]);
+
+    // Africa
+    fp([[-17,15],[-15,12],[-12,8],[-8,5],[-5,5],[0,5],
+        [8,5],[10,2],[12,-2],[14,-8],[12,-18],[10,-22],
+        [14,-28],[18,-34],[22,-34],[28,-32],[34,-26],
+        [38,-18],[42,-12],[44,4],[48,8],[44,12],[42,12],
+        [44,16],[40,20],[38,24],[36,28],[34,32],[32,30],
+        [28,32],[26,32],[22,36],[18,38],[12,36],[10,38],
+        [6,37],[2,37],[-2,35],[-5,36],[-14,30],[-17,22],[-17,15]]);
+
+    // Arabian Peninsula / Middle East
+    fp([[36,34],[38,38],[42,38],[46,36],[54,26],
+        [58,22],[60,22],[58,18],[50,14],[44,12],
+        [40,16],[38,22],[36,26],[34,28],[34,32],[36,34]]);
+
+    // Russia + Central/North Asia
+    fp([[26,44],[30,46],[34,46],[38,42],[44,42],[48,46],
+        [52,48],[56,46],[60,44],[64,44],[68,46],[72,46],
+        [76,44],[80,44],[84,42],[88,44],[92,48],[96,50],
+        [100,50],[104,52],[108,54],[110,56],[112,54],[116,50],
+        [120,48],[124,50],[128,52],[130,48],[134,44],[138,44],
+        [140,48],[142,50],[144,50],[148,46],[150,44],[152,46],
+        [154,52],[152,58],[148,58],[144,60],[140,64],[132,66],
+        [124,70],[118,72],[112,72],[106,72],[100,70],[94,70],
+        [88,72],[82,74],[76,74],[70,72],[64,68],[58,64],
+        [54,58],[48,56],[42,52],[38,48],[34,48],[30,48],[26,44]]);
+
+    // India
+    fp([[68,24],[72,26],[76,28],[80,28],[84,26],[88,24],
+        [90,22],[88,20],[86,14],[80,8],[78,8],[76,8],
+        [74,14],[72,20],[68,24]]);
+
+    // Indochina / SE Asia mainland
+    fp([[96,24],[100,22],[104,14],[104,8],[106,4],
+        [104,2],[100,2],[96,4],[92,18],[90,22],[92,22],[96,24]]);
+
+    // China + East Asia
+    fp([[76,44],[80,44],[84,42],[88,44],[92,46],[96,48],
+        [100,50],[104,48],[108,48],[112,48],[116,44],[120,40],
+        [124,40],[126,38],[128,38],[128,34],[124,30],[120,26],
+        [116,22],[112,20],[108,20],[104,22],[100,20],[96,22],
+        [92,22],[90,24],[88,26],[84,28],[80,28],[76,28],
+        [72,26],[68,24],[68,28],[72,32],[74,36],[72,40],[76,44]]);
+
+    // Japan (Honshu)
+    fp([[130,34],[134,32],[136,34],[136,38],[132,40],[130,34]]);
+
+    // Australia
+    fp([[114,-22],[116,-20],[120,-18],[124,-16],[128,-16],
+        [132,-12],[136,-12],[138,-14],[142,-16],[148,-22],
+        [152,-26],[152,-30],[150,-36],[148,-38],[144,-38],
+        [140,-36],[136,-34],[130,-32],[124,-30],[120,-28],
+        [116,-26],[114,-22]]);
+
+    // Greenland
+    fp([[-44,72],[-34,72],[-24,74],[-18,76],[-18,80],
+        [-24,82],[-34,84],[-44,84],[-50,82],[-52,78],[-50,74],[-44,72]]);
+
+    // Iceland
+    fp([[-24,64],[-18,64],[-14,66],[-22,66],[-24,64]]);
+
+    // Madagascar
+    fp([[44,-12],[48,-12],[50,-16],[48,-26],[44,-26],[44,-12]]);
+
+    // Antarctica
+    fp([[-180,-70],[180,-70],[180,-90],[-180,-90]]);
+
+    // Read land mask from canvas
+    const px = mctx.getImageData(0, 0, W, H).data;
     const landMap = new Float32Array(W * H);
+    for (let i = 0; i < W * H; i++) {
+      landMap[i] = px[i * 4] > 128 ? 1 : 0;
+    }
 
-    // Continent ellipses: [cx_lon, cy_lat, rx_lon, ry_lat, weight]
-    // Placed at geographically accurate positions so continents are recognisable
-    const continents = [
-      // ── North America ──────────────────────────────────────────
-      [-108, 54,  50, 20, 1.0],  // main body
-      [ -95, 32,  30, 14, 0.9],  // southern US / Mexico
-      [ -84, 12,  10,  7, 0.8],  // Central America
-      // ── South America ─────────────────────────────────────────
-      [ -58, -10, 22, 32, 1.0],
-      [ -65,   8, 12,  8, 0.85],
-      // ── Europe ────────────────────────────────────────────────
-      [   8,  52, 16, 12, 0.9],
-      [  15,  64,  9, 10, 0.8],  // Scandinavia
-      [  -4,  40,  6,  5, 0.8],  // Iberia
-      [  12,  43,  4,  7, 0.75], // Italy
-      [  -2,  54,  3,  4, 0.7],  // British Isles
-      [  26,  57, 10,  9, 0.8],  // East Europe / Baltics
-      // ── Africa ────────────────────────────────────────────────
-      [  18,   5, 30, 36, 1.0],
-      [  14,  24, 26, 10, 0.9],  // North Africa (wider)
-      [  26, -28, 15, 10, 0.9],  // Southern Africa narrowing
-      [  44,   9,  8,  8, 0.8],  // Horn of Africa
-      // ── Middle East ────────────────────────────────────────────
-      [  46,  26, 14, 11, 0.9],
-      // ── Asia (vast) ────────────────────────────────────────────
-      [  78,  58, 60, 18, 0.9],  // Russia / Siberia
-      [  78,  20, 15, 22, 1.0],  // Indian subcontinent
-      [ 110,  34, 22, 20, 1.0],  // China
-      [ 135,  36,  3,  9, 0.8],  // Japan
-      [ 103,  14, 10, 16, 0.85], // SE Asia mainland
-      [ 118,   2, 14,  5, 0.7],  // Indonesia (broad)
-      [ 115,  -6, 10,  4, 0.7],
-      [ 140,  -5,  8,  4, 0.75], // New Guinea
-      // ── Australia ──────────────────────────────────────────────
-      [ 134, -27, 20, 16, 1.0],
-      // ── Greenland & islands ────────────────────────────────────
-      [ -41,  72, 14, 10, 0.95],
-      [ -19,  65,  3,  2, 0.7],  // Iceland
-      [  47, -20,  3,  7, 0.8],  // Madagascar
-      [ 172, -42,  2,  5, 0.65], // New Zealand
-    ];
-
+    // ── Step 2: Generate elevation ────────────────────────────────
+    const elev = new Float32Array(W * H);
     for (let y = 0; y < H; y++) {
-      const lat    = (1 - y / H) * 180 - 90;  // +90 top, -90 bottom
-      const latAbs = Math.abs(lat) / 90;
-
+      const lat = (1 - y / H) * 180 - 90;
       for (let x = 0; x < W; x++) {
         const lon = (x / W) * 360 - 180;
-
-        // Land score from continent ellipses
-        let landScore = 0;
-        for (const [cx, cy, rx, ry, w] of continents) {
-          let dlon = lon - cx;
-          if (dlon >  180) dlon -= 360;
-          if (dlon < -180) dlon += 360;
-          const dlat = lat - cy;
-          const dist = Math.sqrt((dlon / rx) * (dlon / rx) + (dlat / ry) * (dlat / ry));
-          landScore  = Math.max(landScore, Math.max(0, 1 - dist) * w);
-        }
-
-        // Antarctica
-        if (lat < -64) {
-          landScore = Math.max(landScore, Math.min(1, (-lat - 64) / 24));
-        }
-
-        // Coastal noise for organic-looking shorelines
-        const nx    = (x / W) * 9.0;
-        const ny    = (y / H) * 4.5;
-        const noise = NoiseUtils.fbm(nx + 50.3, ny + 22.7, 4) * 0.5 - 0.25;
-        const noisy = Math.max(0, Math.min(1, landScore + noise * 0.38));
-
-        landMap[y * W + x] = noisy > 0.40 ? 1 : 0;
-
-        // ── Elevation ─────────────────────────────────────────────
+        const idx = y * W + x;
         let e;
-        if (noisy <= 0.40) {
-          // Ocean depth from land distance
-          e = 0.10 + noisy * 0.55;
+
+        if (landMap[idx] < 0.5) {
+          e = 0.12 + NoiseUtils.fbm((x / W) * 4, (y / H) * 2, 3) * 0.08;
         } else {
-          // Base terrain noise
           const tnx = (x / W) * 6 + 5.1;
           const tny = (y / H) * 3 + 5.1;
-          e = 0.52 + NoiseUtils.fbm(tnx, tny, 5) * 0.16;
+          e = 0.52 + NoiseUtils.fbm(tnx, tny, 4) * 0.12;
 
-          // Named mountain ranges stacked as elevation bumps
           const mtn = Math.max(
-            this._mountainRange(lon, lat, -116, 46,  8, 18),  // Rockies
-            this._mountainRange(lon, lat,  -78, 42,  5, 13),  // Appalachians
-            this._mountainRange(lon, lat,  -70,-24,  5, 34),  // Andes
-            this._mountainRange(lon, lat,    9, 46,  6,  4),  // Alps
-            this._mountainRange(lon, lat,   84, 29, 18,  5),  // Himalayas
-            this._mountainRange(lon, lat,   92, 34, 14, 10),  // Tibetan plateau
-            this._mountainRange(lon, lat,   60, 58,  3, 18),  // Urals
-            this._mountainRange(lon, lat,   36,  5,  4, 16),  // E. Africa highlands
-            this._mountainRange(lon, lat,   -3, 32, 12,  4),  // Atlas
-            this._mountainRange(lon, lat,   44, 42, 10,  3),  // Caucasus
-            this._mountainRange(lon, lat,  127, 35,  3,  8)   // Japan Alps
+            this._mountainRange(lon, lat, -116, 46,  8, 18),
+            this._mountainRange(lon, lat,  -78, 42,  5, 13),
+            this._mountainRange(lon, lat,  -70,-24,  5, 34),
+            this._mountainRange(lon, lat,    9, 46,  6,  4),
+            this._mountainRange(lon, lat,   84, 29, 18,  5),
+            this._mountainRange(lon, lat,   92, 34, 14, 10),
+            this._mountainRange(lon, lat,   60, 58,  3, 18),
+            this._mountainRange(lon, lat,   36,  5,  4, 16),
+            this._mountainRange(lon, lat,   -3, 32, 12,  4),
+            this._mountainRange(lon, lat,   44, 42, 10,  3),
+            this._mountainRange(lon, lat,  127, 35,  3,  8)
           );
           e += mtn * 0.38;
         }
 
-        // Polar ice caps force high elevation
         if (lat >  78) e = Math.max(e, 0.75 + (lat  - 78) / 12 * 0.18);
-        if (lat < -64) e = Math.max(e, 0.75 + (-lat - 64) / 26 * 0.18);
+        if (lat < -64) e = Math.max(e, 0.80);
 
-        elev[y * W + x] = Math.max(0, Math.min(1, e));
+        elev[idx] = Math.max(0, Math.min(1, e));
       }
     }
 
@@ -248,9 +300,9 @@ class UniverseScene {
     ];
 
     // Ocean palette
-    const deepSea  = [  4,  16,  60];
-    const ocean    = [ 12,  52, 118];
-    const shallow  = [ 25,  90, 155];
+    const deepSea  = [  3,  14,  52];
+    const ocean    = [ 10,  46, 110];
+    const shallow  = [ 22,  82, 148];
 
     // Biome palettes (land)
     const tropical = [ 15,  90,  22];   // equatorial rainforest

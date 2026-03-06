@@ -149,20 +149,13 @@ class RoomScene {
     back.position.y  = 1;
     this.scene.add(back);
 
-    // Volumetric-light-look: cone from above
-    const coneGeo = new THREE.ConeGeometry(3.5, 6.5, 32, 1, true);
-    const coneMat = new THREE.MeshBasicMaterial({
-      color:      0xfff8e8,
-      transparent: true,
-      opacity:    0.18,
-      side:       THREE.DoubleSide,
-      depthWrite:  false,
-      blending:   THREE.AdditiveBlending,
+    // Wood floor (different material from walls)
+    const floorMat = new THREE.MeshStandardMaterial({
+      color:     0xc8a878,
+      roughness: 0.88,
+      metalness: 0.01,
     });
-    const lightCone = new THREE.Mesh(coneGeo, coneMat);
-    lightCone.position.set(0, 2.5, 0);
-    lightCone.rotation.x = Math.PI; // point down
-    this.scene.add(lightCone);
+    floor.material = floorMat;
   }
 
   /* ── The sphere ───────────────────────────────────────────────── */
@@ -181,7 +174,8 @@ class RoomScene {
     this._sphere = new THREE.Mesh(geo, this._sphereMat);
     this._sphere.castShadow    = true;
     this._sphere.receiveShadow = false;
-    this._sphere.position.set(0, 0, 0);
+    // Sphere radius = 1, floor at y = -1.6 → sit on floor
+    this._sphere.position.set(0, -0.6, 0);
     this.scene.add(this._sphere);
 
     // Outer glow sprite
@@ -247,7 +241,7 @@ class RoomScene {
     // Overhead spot — warm key light casting a soft shadow on the floor
     this._keyLight = new THREE.SpotLight(0xfff3d0, 2.8, 12, Math.PI / 5, 0.5, 1.5);
     this._keyLight.position.set(0, 5, 0.5);
-    this._keyLight.target.position.set(0, 0, 0);
+    this._keyLight.target.position.set(0, -0.6, 0);
     this._keyLight.castShadow = true;
     this._keyLight.shadow.mapSize.set(1024, 1024);
     this._keyLight.shadow.camera.near = 1;
@@ -367,10 +361,10 @@ class RoomScene {
     const th  = this._theta;
     this.camera.position.set(
       r * Math.sin(phi) * Math.sin(th),
-      r * Math.cos(phi),
+      r * Math.cos(phi) - 0.3,
       r * Math.sin(phi) * Math.cos(th)
     );
-    this.camera.lookAt(0, 0, 0);
+    this.camera.lookAt(0, -0.6, 0);
   }
 
   /* ── Sphere click check ───────────────────────────────────────── */
@@ -386,32 +380,10 @@ class RoomScene {
   _activateSphere() {
     this._activated = true;
 
-    const mat = this._sphereMat;
-
-    // Pulse scale
+    // Pulse scale only — sphere stays matte black
     gsap.timeline()
       .to(this._sphere.scale, { x: 1.18, y: 1.18, z: 1.18, duration: 0.22, ease: 'power2.out' })
       .to(this._sphere.scale, { x: 1.00, y: 1.00, z: 1.00, duration: 0.35, ease: 'elastic.out(1.2, 0.5)' });
-
-    // Red internal glow
-    gsap.to(mat, {
-      emissiveIntensity: 0.45,
-      duration:          0.8,
-      ease:              'power2.out',
-      onUpdate: () => {
-        mat.emissive.set(0x8a0000);
-        mat.needsUpdate = true;
-      },
-    });
-
-    // Red underlight fades in
-    gsap.to(this._redLight, { intensity: 1.2, duration: 1.2, ease: 'power2.out' });
-
-    // Glow sprite appears
-    gsap.to(this._glowSprite.material, { opacity: 1, duration: 1.0, ease: 'power2.out' });
-
-    // Key light dims slightly
-    gsap.to(this._keyLight, { intensity: 1.8, duration: 1.5 });
 
     // Show labels with stagger
     gsap.delayedCall(0.4, () => {
@@ -432,14 +404,10 @@ class RoomScene {
     if (this._inTransition) return;
     this._inTransition = true;
 
-    // Sphere pulse + zoom
+    // Sphere pulse + zoom — no color change
     gsap.timeline()
       .to(this._sphere.scale, { x: 1.25, y: 1.25, z: 1.25, duration: 0.3, ease: 'power3.out' })
       .to(this._sphere.scale, { x: 1.00, y: 1.00, z: 1.00, duration: 0.2 });
-
-    // Crank up red glow
-    gsap.to(this._sphereMat, { emissiveIntensity: 1.2, duration: 0.4 });
-    gsap.to(this._redLight,  { intensity: 3.5,    duration: 0.4 });
 
     // Camera rushes toward sphere
     const rProxy = { r: this._radius };
@@ -540,17 +508,6 @@ class RoomScene {
 
     if (hovered !== this._hovering) {
       this._hovering = hovered;
-      if (!this._activated) {
-        gsap.to(this._sphereMat, {
-          emissiveIntensity: hovered ? 0.08 : 0,
-          duration:          0.4,
-          onUpdate: () => {
-            this._sphereMat.emissive.set(0x330000);
-            this._sphereMat.needsUpdate = true;
-          },
-        });
-        gsap.to(this._glowSprite.material, { opacity: hovered ? 0.4 : 0, duration: 0.5 });
-      }
       this.canvas.style.cursor = hovered ? 'pointer' : 'default';
     }
   }
@@ -622,7 +579,7 @@ class RoomScene {
     this._radius       = 4.2;
     this._updateCamera();
 
-    // Reset sphere
+    // Reset sphere scale (position stays at floor level)
     this._sphere.scale.set(1, 1, 1);
 
     gsap.to(this.overlay, {
