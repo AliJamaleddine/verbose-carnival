@@ -40,7 +40,7 @@ class RoomScene {
     this._buildParticles();
     this._buildLights();
     this._buildLabels();
-    this._buildEnvMap();
+    // _buildEnvMap() is deferred to start() so it runs on a visible canvas
 
     this._setupEvents();
     window.addEventListener('resize', this._onResize.bind(this));
@@ -628,6 +628,8 @@ class RoomScene {
   /* ── Start (called when scene becomes visible) ────────────────── */
   start() {
     this._startTime = Date.now();
+    // Build env map now — canvas is visible so WebGL context is fully ready
+    if (!this._envMap) this._buildEnvMap();
     this._animate();
   }
 

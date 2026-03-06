@@ -42,10 +42,15 @@
 
     requestAnimationFrame(() => {
       universe = new UniverseScene();
-      room     = new RoomScene();
 
-      room.onGallerySelect = openGallery;
-      gallery.onBack       = returnToRoom;
+      try {
+        room = new RoomScene();
+      } catch (e) {
+        console.error('[Portfolio] RoomScene init error:', e);
+      }
+
+      if (room) room.onGallerySelect = openGallery;
+      gallery.onBack = returnToRoom;
 
       document.getElementById('skip-intro').addEventListener('click', skipIntro);
 
