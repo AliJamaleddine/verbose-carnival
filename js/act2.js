@@ -349,9 +349,9 @@ class RoomScene {
     this.scene.add(this._fillLight);
 
     // Side fill — cool-neutral from left wall
-    this.scene.add(Object.assign(new THREE.PointLight(0xd0d8e8, 0.6, 10, 2), {
-      position: new THREE.Vector3(-4, 1.5, 0)
-    }));
+    const sideFill = new THREE.PointLight(0xd0d8e8, 0.6, 10, 2);
+    sideFill.position.set(-4, 1.5, 0);
+    this.scene.add(sideFill);
 
     // Warm ambient (gallery daylight feel)
     this.scene.add(new THREE.AmbientLight(0xddd9d0, 3.5));
@@ -628,8 +628,14 @@ class RoomScene {
   /* ── Start (called when scene becomes visible) ────────────────── */
   start() {
     this._startTime = Date.now();
-    // Build env map now — canvas is visible so WebGL context is fully ready
-    if (!this._envMap) this._buildEnvMap();
+    // Env map is best-effort — sphere renders fine without it
+    try {
+      if (!this._envMap) this._buildEnvMap();
+    } catch (e) {
+      console.warn('[Portfolio] env map skipped:', e.message);
+    }
+    // Force one immediate render before the loop so the canvas isn't blank
+    this.renderer.render(this.scene, this.camera);
     this._animate();
   }
 
