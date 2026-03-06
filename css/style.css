@@ -150,14 +150,12 @@ html, body {
 /* "Select your destination." prompt */
 .sphere-prompt {
   position: absolute;
-  top: 36%;
+  top: 20%;
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
   z-index: 5;
   pointer-events: none;
-  padding: 10px 28px;
-  border-radius: 2px;
 }
 
 .sphere-prompt span {
@@ -281,16 +279,8 @@ html, body {
   color: rgba(30, 26, 20, 0.45);
 }
 
-#act2 .sphere-prompt {
-  background: rgba(242, 240, 232, 0.72);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 2px 24px rgba(0, 0, 0, 0.08);
-}
-
 #act2 .sphere-prompt span {
-  color: rgba(22, 18, 12, 0.90);
+  color: rgba(22, 18, 12, 0.82);
   text-shadow: none;
 }
 

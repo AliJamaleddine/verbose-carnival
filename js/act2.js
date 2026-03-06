@@ -124,136 +124,211 @@ class RoomScene {
 
   /* ── Procedural city night skyline texture ────────────────────── */
   _buildCityTexture() {
-    const W = 1024, H = 512;
+    const W = 2048, H = 1024;
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
-    const h = (n) => { const x = Math.sin(n + 1) * 73856; return x - Math.floor(x); };
+    // Deterministic hash
+    const hsh = (n) => { const x = Math.sin(n + 1.3) * 92341; return x - Math.floor(x); };
 
-    // Deep night sky
-    const sky = ctx.createLinearGradient(0, 0, 0, H * 0.7);
-    sky.addColorStop(0,    '#04060f');
-    sky.addColorStop(0.45, '#080d1e');
-    sky.addColorStop(1,    '#141d38');
+    // ── Sky ──────────────────────────────────────────────────────
+    const sky = ctx.createLinearGradient(0, 0, 0, H * 0.72);
+    sky.addColorStop(0,    '#030509');
+    sky.addColorStop(0.4,  '#060b18');
+    sky.addColorStop(0.75, '#0e1630');
+    sky.addColorStop(1,    '#1a253e');
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
 
-    // Stars
-    for (let i = 0; i < 180; i++) {
-      const sx = h(i * 6.1) * W, sy = h(i * 3.9) * H * 0.6;
-      const sa = 0.35 + h(i * 5.3) * 0.65;
-      const sr = h(i * 2.7) > 0.93 ? 1.4 : 0.6;
+    // Stars (varied sizes, some brighter)
+    for (let i = 0; i < 260; i++) {
+      const sx = hsh(i * 5.9) * W, sy = hsh(i * 4.1) * H * 0.58;
+      const bright = hsh(i * 2.3) > 0.92;
       ctx.beginPath();
-      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${sa.toFixed(2)})`;
+      ctx.arc(sx, sy, bright ? 1.5 : 0.7, 0, Math.PI * 2);
+      ctx.fillStyle = bright ? `rgba(255,255,240,${(0.7 + hsh(i) * 0.3).toFixed(2)})`
+                             : `rgba(200,210,255,${(0.3 + hsh(i * 3.1) * 0.5).toFixed(2)})`;
       ctx.fill();
     }
 
-    // Moon + halo
-    const mx = W * 0.82, my = H * 0.13;
+    // Moon
+    const mx = W * 0.80, my = H * 0.10;
     ctx.save();
-    ctx.shadowColor = 'rgba(180,210,255,0.8)';
-    ctx.shadowBlur  = 45;
-    ctx.beginPath();
-    ctx.arc(mx, my, 16, 0, Math.PI * 2);
-    ctx.fillStyle = '#f0f4ff';
-    ctx.fill();
+    ctx.shadowColor = 'rgba(160,200,255,0.9)'; ctx.shadowBlur = 55;
+    ctx.beginPath(); ctx.arc(mx, my, 22, 0, Math.PI * 2);
+    ctx.fillStyle = '#eef2ff'; ctx.fill();
     ctx.restore();
-    const halo = ctx.createRadialGradient(mx, my, 0, mx, my, 90);
-    halo.addColorStop(0.15, 'rgba(180,210,255,0.10)');
-    halo.addColorStop(1,    'rgba(0,0,0,0)');
-    ctx.fillStyle = halo;
-    ctx.fillRect(mx - 90, my - 90, 180, 180);
+    const halo = ctx.createRadialGradient(mx, my, 0, mx, my, 120);
+    halo.addColorStop(0.18, 'rgba(160,200,255,0.09)');
+    halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo; ctx.fillRect(mx-120, my-120, 240, 240);
 
-    // Horizon city glow (light pollution)
-    const cg = ctx.createLinearGradient(0, H * 0.56, 0, H * 0.82);
-    cg.addColorStop(0, 'rgba(0,0,0,0)');
-    cg.addColorStop(1, 'rgba(255,130,40,0.20)');
-    ctx.fillStyle = cg;
-    ctx.fillRect(0, H * 0.56, W, H * 0.26);
+    // Warm horizon city-glow
+    const glow = ctx.createLinearGradient(0, H * 0.52, 0, H * 0.82);
+    glow.addColorStop(0, 'rgba(0,0,0,0)');
+    glow.addColorStop(1, 'rgba(255,120,35,0.22)');
+    ctx.fillStyle = glow; ctx.fillRect(0, H * 0.52, W, H * 0.30);
 
-    // Atmosphere haze
-    const hz = ctx.createLinearGradient(0, H * 0.50, 0, H * 0.74);
-    hz.addColorStop(0, 'rgba(20,30,60,0)');
-    hz.addColorStop(1, 'rgba(30,40,70,0.32)');
-    ctx.fillStyle = hz;
-    ctx.fillRect(0, H * 0.50, W, H * 0.24);
+    // Atmosphere haze band
+    const hz = ctx.createLinearGradient(0, H * 0.56, 0, H * 0.74);
+    hz.addColorStop(0, 'rgba(18,28,55,0)');
+    hz.addColorStop(1, 'rgba(28,38,65,0.38)');
+    ctx.fillStyle = hz; ctx.fillRect(0, H * 0.56, W, H * 0.18);
 
-    // Building helper (color, window fill fraction)
-    const drawB = (x, top, w, bh, col, litFrac) => {
+    // ── Building helpers ─────────────────────────────────────────
+    // Draw a rectangular building with lit windows
+    const drawFlat = (x, top, w, bh, col, litFrac) => {
       ctx.fillStyle = col;
       ctx.fillRect(x, top, w, bh);
-      const wW = 4, wH = 6, gapX = 9, gapY = 11, padX = 5, padY = 6;
-      const cols = Math.max(1, Math.floor((w - padX * 2) / gapX));
-      const rows = Math.max(1, Math.floor((bh - padY * 2) / gapY));
+      const gX = 10, gY = 13, padX = 6, padY = 7, wW = 5, wH = 8;
+      const cols = Math.max(1, Math.floor((w - padX * 2) / gX));
+      const rows = Math.max(1, Math.floor((bh - padY * 2) / gY));
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          if (h(x * 0.31 + c * 11.7 + top * 0.19 + r * 7.3) < litFrac) {
-            const warm = h(c * 4.1 + r * 3.7 + x * 0.1);
-            ctx.fillStyle = warm > 0.72
-              ? 'rgba(255,240,150,0.95)'
-              : warm > 0.38 ? 'rgba(255,255,200,0.85)' : 'rgba(180,220,255,0.80)';
-            ctx.fillRect(x + padX + c * gapX, top + padY + r * gapY, wW, wH);
+          if (hsh(x * 0.28 + c * 13.1 + top * 0.17 + r * 8.9) < litFrac) {
+            const warm = hsh(c * 5.3 + r * 4.1 + x * 0.07);
+            ctx.fillStyle = warm > 0.68 ? 'rgba(255,235,140,0.95)'
+                          : warm > 0.35 ? 'rgba(255,250,195,0.85)'
+                                        : 'rgba(175,215,255,0.78)';
+            ctx.fillRect(x + padX + c * gX, top + padY + r * gY, wW, wH);
           }
         }
       }
     };
 
-    // Background buildings
-    [[0,H,58,180],[58,H,42,150],[100,H,72,238],[172,H,48,170],
-     [220,H,88,272],[308,H,52,190],[360,H,78,228],[440,H,44,165],
-     [484,H,82,260],[566,H,62,205],[628,H,48,158],[676,H,96,288],
-     [772,H,58,200],[830,H,68,244],[898,H,76,182],[974,H,44,170],
-    ].forEach(([x,base,w,bh]) => drawB(x, base-bh, w, bh, '#090d18', 0.06));
+    // Draw an art-deco stepped tower (3 tiers, each narrower)
+    const drawTower = (x, base, w, totalH, col, litFrac) => {
+      // Tier proportions: bottom 50%, mid 30%, top 20% of height
+      const t1h = Math.floor(totalH * 0.52), t2h = Math.floor(totalH * 0.30), t3h = totalH - t1h - t2h;
+      const t1w = w, t2w = Math.floor(w * 0.72), t3w = Math.floor(w * 0.48);
+      const t1x = x, t2x = x + (w - t2w) / 2, t3x = x + (w - t3w) / 2;
+      drawFlat(t1x, base - t1h,         t1w, t1h, col, litFrac);
+      drawFlat(t2x, base - t1h - t2h,   t2w, t2h, col, litFrac);
+      drawFlat(t3x, base - totalH,       t3w, t3h, col, litFrac * 0.6);
+      // Spire
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(t3x + t3w * 0.3, base - totalH);
+      ctx.lineTo(t3x + t3w / 2,   base - totalH - Math.floor(totalH * 0.14));
+      ctx.lineTo(t3x + t3w * 0.7, base - totalH);
+      ctx.fill();
+      // Red beacon
+      const bx = t3x + t3w / 2, by = base - totalH - Math.floor(totalH * 0.14);
+      const bc = ctx.createRadialGradient(bx, by, 0, bx, by, 9);
+      bc.addColorStop(0, 'rgba(255,50,50,1)'); bc.addColorStop(0.5, 'rgba(255,60,60,0.5)'); bc.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = bc; ctx.fillRect(bx - 9, by - 9, 18, 18);
+    };
 
-    // Mid-ground buildings
-    [[10,H,52,208],[62,H,60,268],[122,H,46,234],[168,H,82,308],
-     [250,H,48,252],[298,H,72,292],[370,H,44,214],[414,H,90,362],
-     [504,H,58,258],[562,H,52,238],[614,H,76,302],[690,H,46,198],
-     [736,H,82,340],[818,H,54,222],[872,H,70,288],[942,H,56,212],
-    ].forEach(([x,base,w,bh]) => drawB(x, base-bh, w, bh, '#0d1220', 0.18));
-
-    // Foreground towers
-    [[5,H,48,202,false],[53,H,62,292,false],[115,H,42,258,false],
-     [157,H,80,372,true],[237,H,52,278,false],[289,H,70,328,false],
-     [359,H,44,228,false],[403,H,90,428,true],[493,H,58,282,false],
-     [551,H,48,252,false],[599,H,78,352,false],[677,H,44,212,false],
-     [721,H,84,395,true],[805,H,52,262,false],[857,H,72,318,false],
-     [929,H,58,238,false],[987,H,40,188,false],
-    ].forEach(([x,base,w,bh,tower]) => {
-      drawB(x, base-bh, w, bh, '#10141f', 0.42);
-      if (tower) {
-        ctx.fillStyle = '#0b0f1a';
-        ctx.beginPath();
-        ctx.moveTo(x + w * 0.35, base - bh);
-        ctx.lineTo(x + w / 2,    base - bh - 52);
-        ctx.lineTo(x + w * 0.65, base - bh);
-        ctx.fill();
-        const bc = ctx.createRadialGradient(x+w/2, base-bh-52, 0, x+w/2, base-bh-52, 7);
-        bc.addColorStop(0,   'rgba(255,55,55,1)');
-        bc.addColorStop(0.5, 'rgba(255,70,70,0.5)');
-        bc.addColorStop(1,   'rgba(0,0,0,0)');
-        ctx.fillStyle = bc;
-        ctx.fillRect(x+w/2-7, base-bh-59, 14, 14);
+    // Draw a glass-curtain tower (slight blue-green tint, no individual windows — grid of glowing panels)
+    const drawGlass = (x, base, w, totalH, litFrac) => {
+      const grad = ctx.createLinearGradient(x, base - totalH, x + w, base);
+      grad.addColorStop(0, '#0e1a28'); grad.addColorStop(1, '#121f30');
+      ctx.fillStyle = grad; ctx.fillRect(x, base - totalH, w, totalH);
+      // Floor-to-floor bands
+      const bandH = 12, bandGap = 3;
+      for (let fy = base - totalH; fy < base; fy += bandH + bandGap) {
+        if (hsh(x * 0.12 + fy * 0.09) < litFrac) {
+          ctx.fillStyle = 'rgba(140,210,230,0.22)';
+          ctx.fillRect(x + 2, fy + 2, w - 4, bandH - 2);
+        }
       }
+    };
+
+    // ── Background layer (most distant, smallest, darkest) ────────
+    // Heights very varied: short (60-140) and a few medium (200-260)
+    const bg = [
+      [0,H,62,95],[62,H,45,130],[107,H,80,78],[187,H,50,185],[237,H,38,64],
+      [275,H,95,210],[370,H,44,88],[414,H,68,145],[482,H,55,230],[537,H,42,75],
+      [579,H,88,195],[667,H,48,110],[715,H,72,250],[787,H,40,82],[827,H,90,170],
+      [917,H,55,135],[972,H,48,90],[1020,H,75,200],[1095,H,50,68],[1145,H,85,155],
+      [1230,H,46,195],[1276,H,62,78],[1338,H,90,230],[1428,H,44,100],[1472,H,70,145],
+      [1542,H,52,88],[1594,H,80,215],[1674,H,45,125],[1719,H,65,72],[1784,H,92,185],
+      [1876,H,48,130],[1924,H,70,95],[1994,H,60,165],
+    ];
+    bg.forEach(([x,base,w,bh]) => drawFlat(x, base-bh, w, bh, '#080c15', 0.04));
+
+    // ── Mid-ground layer — more varied, some taller ───────────────
+    // Heights: short (80-150), medium (200-280), occasional tall (340-380)
+    const mid = [
+      [0,H,58,130],[58,H,72,190],[130,H,44,82],[174,H,88,245],[262,H,50,145],
+      [312,H,65,300],[377,H,42,88],[419,H,95,265],[514,H,55,160],[569,H,78,340],
+      [647,H,46,105],[693,H,85,220],[778,H,52,370],[830,H,68,150],[898,H,46,92],
+      [944,H,80,280],[1024,H,55,195],[1079,H,70,120],[1149,H,88,350],[1237,H,50,145],
+      [1287,H,65,230],[1352,H,45,88],[1397,H,82,295],[1479,H,55,165],[1534,H,72,110],
+      [1606,H,90,320],[1696,H,48,185],[1744,H,65,100],[1809,H,85,255],[1894,H,55,135],
+      [1949,H,70,200],[2019,H,50,92],
+    ];
+    mid.forEach(([x,base,w,bh]) => drawFlat(x, base-bh, w, bh, '#0c1122', 0.16));
+
+    // ── Foreground — the main dramatic skyline ────────────────────
+    // Hand-crafted Manhattan-inspired profile with dramatic height variation
+    // Short buildings: 90-160px | Medium: 220-300px | Tall: 370-430px | Supertall: 460-490px
+    const fgBuildings = [
+      // Left edge — lower density, shorter
+      { x:0,   w:50,  h:145, type:'flat'  },
+      { x:50,  w:38,  h:92,  type:'flat'  },
+      { x:88,  w:72,  h:205, type:'flat'  },
+      { x:160, w:42,  h:118, type:'flat'  },
+      // First tall cluster
+      { x:202, w:60,  h:255, type:'flat'  },
+      { x:262, w:85,  h:420, type:'tower' }, // ← landmark tower
+      { x:347, w:46,  h:170, type:'flat'  },
+      { x:393, w:70,  h:285, type:'flat'  },
+      { x:463, w:38,  h:102, type:'flat'  },
+      // Dense midtown — very tall cluster
+      { x:501, w:55,  h:310, type:'flat'  },
+      { x:556, w:48,  h:385, type:'glass' }, // glass tower
+      { x:604, w:90,  h:478, type:'tower' }, // ← supertall (Empire State scale)
+      { x:694, w:52,  h:455, type:'tower' }, // ← second supertall
+      { x:746, w:44,  h:330, type:'glass' },
+      { x:790, w:78,  h:255, type:'flat'  },
+      // Slight dip
+      { x:868, w:42,  h:138, type:'flat'  },
+      { x:910, w:65,  h:195, type:'flat'  },
+      { x:975, w:38,  h:102, type:'flat'  },
+      // Right tall cluster
+      { x:1013,w:72,  h:290, type:'flat'  },
+      { x:1085,w:55,  h:395, type:'tower' }, // ← tall landmark
+      { x:1140,w:48,  h:350, type:'glass' },
+      { x:1188,w:80,  h:430, type:'tower' }, // ← major tower
+      { x:1268,w:46,  h:280, type:'flat'  },
+      { x:1314,w:60,  h:205, type:'flat'  },
+      { x:1374,w:38,  h:125, type:'flat'  },
+      // Lower right
+      { x:1412,w:75,  h:245, type:'flat'  },
+      { x:1487,w:50,  h:370, type:'tower' },
+      { x:1537,w:44,  h:160, type:'flat'  },
+      { x:1581,w:68,  h:220, type:'flat'  },
+      { x:1649,w:42,  h:95,  type:'flat'  },
+      { x:1691,w:80,  h:300, type:'flat'  },
+      { x:1771,w:55,  h:185, type:'flat'  },
+      // Right edge tapers
+      { x:1826,w:65,  h:265, type:'tower' },
+      { x:1891,w:48,  h:142, type:'flat'  },
+      { x:1939,w:70,  h:198, type:'flat'  },
+      { x:2009,w:45,  h:110, type:'flat'  },
+    ];
+
+    fgBuildings.forEach(({ x, w, h, type }) => {
+      if      (type === 'tower') drawTower(x, H, w, h, '#0f1320', 0.40);
+      else if (type === 'glass') drawGlass(x, H, w, h, 0.55);
+      else                       drawFlat (x, H - h, w, h, '#0d1118', 0.38);
     });
 
-    // Ground / wet street
-    const st = ctx.createLinearGradient(0, H * 0.80, 0, H);
-    st.addColorStop(0, '#0e1119');
-    st.addColorStop(1, '#06080d');
-    ctx.fillStyle = st;
-    ctx.fillRect(0, H * 0.80, W, H * 0.20);
+    // ── Street level ─────────────────────────────────────────────
+    const st = ctx.createLinearGradient(0, H * 0.82, 0, H);
+    st.addColorStop(0, '#0c0f16'); st.addColorStop(1, '#060709');
+    ctx.fillStyle = st; ctx.fillRect(0, H * 0.82, W, H * 0.18);
 
-    // Wet-road light reflections
-    for (let i = 0; i < 14; i++) {
-      const rx = h(i * 8.3 + 100) * W, rl = 14 + h(i * 4.7) * 28;
-      const rg = ctx.createRadialGradient(rx, H * 0.91, 0, rx, H * 0.91, rl);
-      rg.addColorStop(0,   'rgba(255,200,80,0.38)');
-      rg.addColorStop(0.4, 'rgba(255,160,40,0.14)');
-      rg.addColorStop(1,   'rgba(0,0,0,0)');
-      ctx.fillStyle = rg;
-      ctx.fillRect(rx - rl, H * 0.86, rl * 2, H * 0.14);
+    // Wet road reflections (orange/yellow puddle glows)
+    for (let i = 0; i < 22; i++) {
+      const rx = hsh(i * 7.7 + 30) * W, rl = 18 + hsh(i * 5.1) * 40;
+      const rg = ctx.createRadialGradient(rx, H * 0.92, 0, rx, H * 0.92, rl);
+      const warm = hsh(i * 3.3) > 0.5;
+      rg.addColorStop(0, warm ? 'rgba(255,195,70,0.42)' : 'rgba(150,200,255,0.30)');
+      rg.addColorStop(0.4, warm ? 'rgba(255,150,30,0.15)' : 'rgba(100,160,230,0.10)');
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = rg; ctx.fillRect(rx - rl, H * 0.87, rl * 2, H * 0.13);
     }
 
     return new THREE.CanvasTexture(cv);
@@ -266,8 +341,8 @@ class RoomScene {
     cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
 
-    // Warm off-white base
-    ctx.fillStyle = '#f3f0eb';
+    // Warm greige base — matches wallMat color tint
+    ctx.fillStyle = '#d4ccc0';
     ctx.fillRect(0, 0, W, H);
 
     // Micro plaster variation via layered sine noise
@@ -390,14 +465,14 @@ class RoomScene {
 
   /* ── Room geometry ────────────────────────────────────────────── */
   _buildRoom() {
-    // Shared textured wall material
+    // Shared textured wall material — warm greige (not white)
     const wallTex = this._buildWallTexture();
     wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
     wallTex.repeat.set(2, 2);
     const wallMat = new THREE.MeshStandardMaterial({
       map:       wallTex,
-      color:     0xf5f2ed,
-      roughness: 0.92,
+      color:     0xc8bfb2,   // warm greige — clearly not white
+      roughness: 0.94,
       metalness: 0.0,
     });
 
@@ -405,9 +480,9 @@ class RoomScene {
     const cityTex = this._buildCityTexture();
     const cityMat = new THREE.MeshBasicMaterial({ map: cityTex });
 
-    // Window opening dimensions (world-space)
-    const winW = 2.6, winH = 2.0;
-    const winCY = 1.3, winCZ = -0.5;
+    // Window opening dimensions — large balcony-style (world-space)
+    const winW = 3.6, winH = 4.2;
+    const winCY = 1.1, winCZ = -0.5;  // centred slightly below mid-height
 
     const wallTotH = 6.5, wallTotW = 14, wallCY = 1.2;
     const wallTop = wallCY + wallTotH / 2;  //  4.45
@@ -415,14 +490,14 @@ class RoomScene {
     const wallL   = winCZ  - wallTotW / 2;  // -7.5
     const wallR   = winCZ  + wallTotW / 2;  //  6.5
 
-    const winTop = winCY + winH / 2;  //  2.3
-    const winBot = winCY - winH / 2;  //  0.3
-    const winL   = winCZ - winW / 2;  // -1.8
-    const winR   = winCZ + winW / 2;  //  0.8
+    const winTop = winCY + winH / 2;   //  3.2
+    const winBot = winCY - winH / 2;   // -1.0
+    const winL   = winCZ - winW / 2;   // -2.3
+    const winR   = winCZ + winW / 2;   //  1.3
 
-    const sidePW = (wallTotW - winW) / 2;   // 5.7
-    const topPH  = wallTop - winTop;         // 2.15
-    const botPH  = winBot  - wallBot;        // 2.35
+    const sidePW = (wallTotW - winW) / 2;   // 5.2
+    const topPH  = wallTop - winTop;         // 1.25
+    const botPH  = winBot  - wallBot;        // 1.05
 
     // Helper: add a wall panel
     const addPanel = (geo, rotY, x, y, z, mat) => {
@@ -464,40 +539,65 @@ class RoomScene {
     addPanel(new THREE.PlaneGeometry(sidePW,   winH),  lRot, -5, winCY, wallL + sidePW / 2);          // left side
     addPanel(new THREE.PlaneGeometry(sidePW,   winH),  lRot, -5, winCY, wallR - sidePW / 2);          // right side
 
-    // City view plane behind left window (slightly offset outward)
-    const lCity = new THREE.Mesh(new THREE.PlaneGeometry(winW + 0.6, winH + 0.5), cityMat.clone());
+    // City view plane behind left window — exactly matches opening
+    const lCity = new THREE.Mesh(new THREE.PlaneGeometry(winW, winH), cityMat.clone());
     lCity.rotation.y = lRot;
-    lCity.position.set(-5.5, winCY, winCZ);
+    lCity.position.set(-5.6, winCY, winCZ);
     this.scene.add(lCity);
 
     // ── RIGHT WALL — 4 panels around window ───────────────────────
     const rRot = -Math.PI / 2;
-    addPanel(new THREE.PlaneGeometry(wallTotW, topPH), rRot,  5, winTop + topPH / 2, winCZ);          // top
-    addPanel(new THREE.PlaneGeometry(wallTotW, botPH), rRot,  5, wallBot + botPH / 2, winCZ);         // bottom
-    addPanel(new THREE.PlaneGeometry(sidePW,   winH),  rRot,  5, winCY, wallL + sidePW / 2);          // left side
-    addPanel(new THREE.PlaneGeometry(sidePW,   winH),  rRot,  5, winCY, wallR - sidePW / 2);          // right side
+    addPanel(new THREE.PlaneGeometry(wallTotW, topPH), rRot,  5, winTop + topPH / 2, winCZ);
+    addPanel(new THREE.PlaneGeometry(wallTotW, botPH), rRot,  5, wallBot + botPH / 2, winCZ);
+    addPanel(new THREE.PlaneGeometry(sidePW,   winH),  rRot,  5, winCY, wallL + sidePW / 2);
+    addPanel(new THREE.PlaneGeometry(sidePW,   winH),  rRot,  5, winCY, wallR - sidePW / 2);
 
     // City view plane behind right window
-    const rCity = new THREE.Mesh(new THREE.PlaneGeometry(winW + 0.6, winH + 0.5), cityMat.clone());
+    const rCity = new THREE.Mesh(new THREE.PlaneGeometry(winW, winH), cityMat.clone());
     rCity.rotation.y = rRot;
-    rCity.position.set(5.5, winCY, winCZ);
+    rCity.position.set(5.6, winCY, winCZ);
     this.scene.add(rCity);
 
+    // ── Window reveals / embrasure (wall thickness cross-section) ─
+    // Gives each window physical depth (0.6m wall thickness)
+    const revealMat = new THREE.MeshStandardMaterial({ color: 0xddd4c8, roughness: 0.88, metalness: 0.0 });
+
+    // Window reveals — wall cross-section visible inside the opening
+    const addRevealPieces = (wx) => {
+      const depth = 0.6;
+      const cx = wx < 0 ? wx - depth / 2 : wx + depth / 2;
+      const pieces = [
+        [depth, 0.04, winW,        cx, winTop,  winCZ],  // soffit
+        [depth, 0.10, winW + 0.08, cx, winBot,  winCZ],  // sill
+        [depth, winH, 0.04,        cx, winCY,   winL ],  // left jamb
+        [depth, winH, 0.04,        cx, winCY,   winR ],  // right jamb
+      ];
+      pieces.forEach(([bw, bh, bd, px, py, pz]) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), revealMat);
+        m.position.set(px, py, pz);
+        this.scene.add(m);
+      });
+    };
+    addRevealPieces(-5);
+    addRevealPieces( 5);
+
     // ── Window frames (slim dark metal) ───────────────────────────
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.28, metalness: 0.72 });
-    const fD = 0.06, fW = 0.07; // depth (into room), bar width
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.25, metalness: 0.80 });
+    const fD = 0.05, fW = 0.055;
 
     const addFrame = (wx) => {
-      const sx = wx < 0 ? 1 : -1; // sign toward room interior
+      const sx = wx < 0 ? 1 : -1;
       const ex = wx + sx * fD / 2;
       [
-        // [x, y, z,  BoxGeometry(w, h, d)]
-        [ex, winTop, winCZ,  winW + fW * 2, fW, fD],  // top bar
-        [ex, winBot, winCZ,  winW + fW * 2, fW, fD],  // bottom bar
-        [ex, winCY,  winL,   fD, winH + fW * 2, fW],  // left upright
-        [ex, winCY,  winR,   fD, winH + fW * 2, fW],  // right upright
-        [ex, winCY,  winCZ,  winW, fW, fD],            // mid horizontal
-        [ex, winCY,  winCZ,  fD, winH, fW],            // mid vertical
+        [ex, winTop, winCZ,  winW + fW * 2, fW, fD],   // top rail
+        [ex, winBot, winCZ,  winW + fW * 2, fW, fD],   // bottom rail
+        [ex, winCY,  winL,   fD, winH + fW * 2, fW],   // left post
+        [ex, winCY,  winR,   fD, winH + fW * 2, fW],   // right post
+        // Three horizontal rails dividing into 4 panes
+        [ex, winBot + winH * 0.33, winCZ,  winW, fW * 0.8, fD],
+        [ex, winBot + winH * 0.66, winCZ,  winW, fW * 0.8, fD],
+        // One vertical mullion
+        [ex, winCY, winCZ,  fD, winH, fW * 0.8],
       ].forEach(([fx, fy, fz, bw, bh, bd]) => {
         const fb = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), frameMat);
         fb.position.set(fx, fy, fz);
@@ -636,8 +736,8 @@ class RoomScene {
     sideFill.position.set(-4, 1.5, 0);
     this.scene.add(sideFill);
 
-    // Warm ambient
-    this.scene.add(new THREE.AmbientLight(0xddd9d0, 3.0));
+    // Warm ambient — kept low so walls show their actual colour
+    this.scene.add(new THREE.AmbientLight(0xd8d0c4, 1.6));
 
     // Cool moonlight bleeding in from side windows
     const lWin = new THREE.PointLight(0x5878b8, 1.1, 8, 2);
