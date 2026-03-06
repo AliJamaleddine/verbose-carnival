@@ -16,7 +16,6 @@
   'use strict';
 
   /* ── DOM references ─────────────────────────────────────────── */
-  const $loading = document.getElementById('loading-screen');
   const $act1    = document.getElementById('act1');
   const $act2    = document.getElementById('act2');
   const $act3    = document.getElementById('act3');
@@ -50,17 +49,8 @@
 
       document.getElementById('skip-intro').addEventListener('click', skipIntro);
 
-      setTimeout(hideLoading, 900);
-    });
-  }
-
-  /* ── Hide loading → start Act 1 ─────────────────────────────── */
-  function hideLoading() {
-    $loading.classList.add('fade-out');
-    setTimeout(() => {
-      $loading.style.display = 'none';
       enterUniverse();
-    }, 1000);
+    });
   }
 
   /* ── ACT 1 · UNIVERSE ────────────────────────────────────────── */
