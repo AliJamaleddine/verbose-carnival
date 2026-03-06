@@ -301,6 +301,132 @@ html, body {
 }
 
 /* ================================================================
+   NAV BUTTONS (Act 2 — About / Contact)
+   ================================================================ */
+#act2-nav {
+  position: absolute;
+  top: 24px;
+  right: 32px;
+  z-index: 10;
+  display: flex;
+  gap: 18px;
+}
+
+.nav-pill {
+  background: rgba(255, 252, 245, 0.18);
+  border: 1px solid rgba(30, 26, 20, 0.18);
+  color: rgba(30, 26, 20, 0.72);
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 300;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 7px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  backdrop-filter: blur(6px);
+}
+
+.nav-pill:hover {
+  background: rgba(255, 252, 245, 0.36);
+  color: rgba(20, 16, 10, 0.92);
+  border-color: rgba(30, 26, 20, 0.35);
+}
+
+/* ================================================================
+   OVERLAY PANELS (About / Contact)
+   ================================================================ */
+.panel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(12, 10, 8, 0.68);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.panel-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.panel-box {
+  position: relative;
+  background: #f5f0e8;
+  color: #1a1612;
+  border-radius: 4px;
+  padding: 52px 56px 48px;
+  max-width: 540px;
+  width: calc(100% - 48px);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+}
+
+.panel-box h2 {
+  font-family: var(--serif);
+  font-size: 1.9rem;
+  font-weight: 400;
+  margin-bottom: 20px;
+  letter-spacing: 0.01em;
+}
+
+.panel-box p {
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 300;
+  line-height: 1.75;
+  color: #3a332a;
+  margin-bottom: 14px;
+}
+
+.panel-box a {
+  color: #7a4a28;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(122, 74, 40, 0.35);
+  transition: border-color 0.2s;
+}
+
+.panel-box a:hover {
+  border-color: rgba(122, 74, 40, 0.85);
+}
+
+.panel-close {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  color: rgba(30, 26, 20, 0.45);
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.panel-close:hover {
+  color: rgba(30, 26, 20, 0.9);
+}
+
+.contact-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.contact-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+}
+
+/* ================================================================
    SCROLLBAR (hidden everywhere)
    ================================================================ */
 ::-webkit-scrollbar { display: none; }

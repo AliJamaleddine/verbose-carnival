@@ -33,6 +33,12 @@
     <canvas id="room-canvas"></canvas>
     <div id="act2-overlay" class="screen-overlay"></div>
 
+    <!-- Nav buttons -->
+    <nav id="act2-nav" aria-label="Site navigation">
+      <button class="nav-pill" id="btn-about">About</button>
+      <button class="nav-pill" id="btn-contact">Contact</button>
+    </nav>
+
     <!-- Holographic labels injected by act2.js -->
     <div id="labels-container" aria-label="Destination labels"></div>
 
@@ -43,6 +49,29 @@
 
     <!-- Hint at the bottom -->
     <p id="sphere-hint" class="sphere-hint">Drag to orbit &nbsp;·&nbsp; Click to activate</p>
+  </div>
+
+  <!-- ─── ABOUT PANEL ───────────────────────────────────────────── -->
+  <div id="about-overlay" class="panel-overlay" role="dialog" aria-modal="true" aria-label="About">
+    <div class="panel-box">
+      <button class="panel-close" aria-label="Close">&times;</button>
+      <h2>About</h2>
+      <p>I travel the world with a camera and a lot of curiosity. This portfolio is a collection of moments that stopped me in my tracks — a light that lasted three seconds, a stranger who smiled, a skyline seen from a rooftop I probably wasn't supposed to be on.</p>
+      <p>Based between cities. Available everywhere.</p>
+    </div>
+  </div>
+
+  <!-- ─── CONTACT PANEL ─────────────────────────────────────────── -->
+  <div id="contact-overlay" class="panel-overlay" role="dialog" aria-modal="true" aria-label="Contact">
+    <div class="panel-box">
+      <button class="panel-close" aria-label="Close">&times;</button>
+      <h2>Contact</h2>
+      <p>For commissions, print inquiries, or just to say hello:</p>
+      <div class="contact-links">
+        <a href="mailto:hello@portfolio.com">hello@portfolio.com</a>
+        <a href="https://instagram.com" target="_blank" rel="noopener">@portfolio on Instagram</a>
+      </div>
+    </div>
   </div>
 
   <!-- ─── ACT 3 · THE MEMORIES (GALLERY) ───────────────────────── -->

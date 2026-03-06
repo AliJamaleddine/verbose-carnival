@@ -54,6 +54,23 @@
 
       document.getElementById('skip-intro').addEventListener('click', skipIntro);
 
+      // About / Contact panel toggles
+      const setupPanel = (btnId, overlayId) => {
+        const btn     = document.getElementById(btnId);
+        const overlay = document.getElementById(overlayId);
+        if (!btn || !overlay) return;
+        btn.addEventListener('click', () => overlay.classList.add('open'));
+        overlay.addEventListener('click', e => {
+          if (e.target === overlay || e.target.classList.contains('panel-close'))
+            overlay.classList.remove('open');
+        });
+        document.addEventListener('keydown', e => {
+          if (e.key === 'Escape') overlay.classList.remove('open');
+        });
+      };
+      setupPanel('btn-about',   'about-overlay');
+      setupPanel('btn-contact', 'contact-overlay');
+
       enterUniverse();
     });
   }

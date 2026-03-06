@@ -122,214 +122,107 @@ class RoomScene {
     this.scene.environment = this._envMap;
   }
 
-  /* ── Procedural city night skyline texture ────────────────────── */
-  _buildCityTexture() {
-    const W = 2048, H = 1024;
+  /* ── Daytime window view — frame baked directly into texture ─── */
+  _buildWindowTexture() {
+    const W = 1024, H = 1024;
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
-    // Deterministic hash
-    const hsh = (n) => { const x = Math.sin(n + 1.3) * 92341; return x - Math.floor(x); };
+    const hsh = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5; return x - Math.floor(x); };
 
-    // ── Sky ──────────────────────────────────────────────────────
-    const sky = ctx.createLinearGradient(0, 0, 0, H * 0.72);
-    sky.addColorStop(0,    '#030509');
-    sky.addColorStop(0.4,  '#060b18');
-    sky.addColorStop(0.75, '#0e1630');
-    sky.addColorStop(1,    '#1a253e');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
+    // ── Overcast daytime sky ──────────────────────────────────────
+    const sky = ctx.createLinearGradient(0, 0, 0, H * 0.42);
+    sky.addColorStop(0,   '#9aa5b2');
+    sky.addColorStop(0.5, '#aeb8c2');
+    sky.addColorStop(1,   '#c2cad0');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
 
-    // Stars (varied sizes, some brighter)
-    for (let i = 0; i < 260; i++) {
-      const sx = hsh(i * 5.9) * W, sy = hsh(i * 4.1) * H * 0.58;
-      const bright = hsh(i * 2.3) > 0.92;
-      ctx.beginPath();
-      ctx.arc(sx, sy, bright ? 1.5 : 0.7, 0, Math.PI * 2);
-      ctx.fillStyle = bright ? `rgba(255,255,240,${(0.7 + hsh(i) * 0.3).toFixed(2)})`
-                             : `rgba(200,210,255,${(0.3 + hsh(i * 3.1) * 0.5).toFixed(2)})`;
-      ctx.fill();
-    }
+    // Horizon atmospheric haze
+    const haze = ctx.createLinearGradient(0, H * 0.24, 0, H * 0.44);
+    haze.addColorStop(0, 'rgba(190,202,212,0)');
+    haze.addColorStop(1, 'rgba(190,202,212,0.70)');
+    ctx.fillStyle = haze; ctx.fillRect(0, H * 0.24, W, H * 0.20);
 
-    // Moon
-    const mx = W * 0.80, my = H * 0.10;
-    ctx.save();
-    ctx.shadowColor = 'rgba(160,200,255,0.9)'; ctx.shadowBlur = 55;
-    ctx.beginPath(); ctx.arc(mx, my, 22, 0, Math.PI * 2);
-    ctx.fillStyle = '#eef2ff'; ctx.fill();
-    ctx.restore();
-    const halo = ctx.createRadialGradient(mx, my, 0, mx, my, 120);
-    halo.addColorStop(0.18, 'rgba(160,200,255,0.09)');
-    halo.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = halo; ctx.fillRect(mx-120, my-120, 240, 240);
-
-    // Warm horizon city-glow
-    const glow = ctx.createLinearGradient(0, H * 0.52, 0, H * 0.82);
-    glow.addColorStop(0, 'rgba(0,0,0,0)');
-    glow.addColorStop(1, 'rgba(255,120,35,0.22)');
-    ctx.fillStyle = glow; ctx.fillRect(0, H * 0.52, W, H * 0.30);
-
-    // Atmosphere haze band
-    const hz = ctx.createLinearGradient(0, H * 0.56, 0, H * 0.74);
-    hz.addColorStop(0, 'rgba(18,28,55,0)');
-    hz.addColorStop(1, 'rgba(28,38,65,0.38)');
-    ctx.fillStyle = hz; ctx.fillRect(0, H * 0.56, W, H * 0.18);
-
-    // ── Building helpers ─────────────────────────────────────────
-    // Draw a rectangular building with lit windows
-    const drawFlat = (x, top, w, bh, col, litFrac) => {
-      ctx.fillStyle = col;
-      ctx.fillRect(x, top, w, bh);
-      const gX = 10, gY = 13, padX = 6, padY = 7, wW = 5, wH = 8;
-      const cols = Math.max(1, Math.floor((w - padX * 2) / gX));
-      const rows = Math.max(1, Math.floor((bh - padY * 2) / gY));
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (hsh(x * 0.28 + c * 13.1 + top * 0.17 + r * 8.9) < litFrac) {
-            const warm = hsh(c * 5.3 + r * 4.1 + x * 0.07);
-            ctx.fillStyle = warm > 0.68 ? 'rgba(255,235,140,0.95)'
-                          : warm > 0.35 ? 'rgba(255,250,195,0.85)'
-                                        : 'rgba(175,215,255,0.78)';
-            ctx.fillRect(x + padX + c * gX, top + padY + r * gY, wW, wH);
+    // ── Building helper ───────────────────────────────────────────
+    const drawB = (x, top, w, bh, col) => {
+      ctx.fillStyle = col; ctx.fillRect(x, top, w, bh);
+      const gX = 8, gY = 10, pad = 4, wW = 3, wH = 6;
+      const nC = Math.max(1, Math.floor((w - pad * 2) / gX));
+      const nR = Math.max(1, Math.floor((bh - pad * 2) / gY));
+      for (let r = 0; r < nR; r++) {
+        for (let c = 0; c < nC; c++) {
+          const v = hsh(x * 0.09 + c * 7.4 + top * 0.07 + r * 5.2);
+          if (v < 0.18) {
+            ctx.fillStyle = 'rgba(185,200,215,0.60)'; // glass reflection
+            ctx.fillRect(x + pad + c * gX, top + pad + r * gY, wW, wH);
+          } else if (v < 0.36) {
+            ctx.fillStyle = 'rgba(45,50,55,0.50)';    // dark interior
+            ctx.fillRect(x + pad + c * gX, top + pad + r * gY, wW, wH);
           }
         }
       }
     };
 
-    // Draw an art-deco stepped tower (3 tiers, each narrower)
-    const drawTower = (x, base, w, totalH, col, litFrac) => {
-      // Tier proportions: bottom 50%, mid 30%, top 20% of height
-      const t1h = Math.floor(totalH * 0.52), t2h = Math.floor(totalH * 0.30), t3h = totalH - t1h - t2h;
-      const t1w = w, t2w = Math.floor(w * 0.72), t3w = Math.floor(w * 0.48);
-      const t1x = x, t2x = x + (w - t2w) / 2, t3x = x + (w - t3w) / 2;
-      drawFlat(t1x, base - t1h,         t1w, t1h, col, litFrac);
-      drawFlat(t2x, base - t1h - t2h,   t2w, t2h, col, litFrac);
-      drawFlat(t3x, base - totalH,       t3w, t3h, col, litFrac * 0.6);
-      // Spire
-      ctx.fillStyle = col;
-      ctx.beginPath();
-      ctx.moveTo(t3x + t3w * 0.3, base - totalH);
-      ctx.lineTo(t3x + t3w / 2,   base - totalH - Math.floor(totalH * 0.14));
-      ctx.lineTo(t3x + t3w * 0.7, base - totalH);
-      ctx.fill();
-      // Red beacon
-      const bx = t3x + t3w / 2, by = base - totalH - Math.floor(totalH * 0.14);
-      const bc = ctx.createRadialGradient(bx, by, 0, bx, by, 9);
-      bc.addColorStop(0, 'rgba(255,50,50,1)'); bc.addColorStop(0.5, 'rgba(255,60,60,0.5)'); bc.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = bc; ctx.fillRect(bx - 9, by - 9, 18, 18);
-    };
-
-    // Draw a glass-curtain tower (slight blue-green tint, no individual windows — grid of glowing panels)
-    const drawGlass = (x, base, w, totalH, litFrac) => {
-      const grad = ctx.createLinearGradient(x, base - totalH, x + w, base);
-      grad.addColorStop(0, '#0e1a28'); grad.addColorStop(1, '#121f30');
-      ctx.fillStyle = grad; ctx.fillRect(x, base - totalH, w, totalH);
-      // Floor-to-floor bands
-      const bandH = 12, bandGap = 3;
-      for (let fy = base - totalH; fy < base; fy += bandH + bandGap) {
-        if (hsh(x * 0.12 + fy * 0.09) < litFrac) {
-          ctx.fillStyle = 'rgba(140,210,230,0.22)';
-          ctx.fillRect(x + 2, fy + 2, w - 4, bandH - 2);
-        }
-      }
-    };
-
-    // ── Background layer (most distant, smallest, darkest) ────────
-    // Heights very varied: short (60-140) and a few medium (200-260)
-    const bg = [
-      [0,H,62,95],[62,H,45,130],[107,H,80,78],[187,H,50,185],[237,H,38,64],
-      [275,H,95,210],[370,H,44,88],[414,H,68,145],[482,H,55,230],[537,H,42,75],
-      [579,H,88,195],[667,H,48,110],[715,H,72,250],[787,H,40,82],[827,H,90,170],
-      [917,H,55,135],[972,H,48,90],[1020,H,75,200],[1095,H,50,68],[1145,H,85,155],
-      [1230,H,46,195],[1276,H,62,78],[1338,H,90,230],[1428,H,44,100],[1472,H,70,145],
-      [1542,H,52,88],[1594,H,80,215],[1674,H,45,125],[1719,H,65,72],[1784,H,92,185],
-      [1876,H,48,130],[1924,H,70,95],[1994,H,60,165],
-    ];
-    bg.forEach(([x,base,w,bh]) => drawFlat(x, base-bh, w, bh, '#080c15', 0.04));
-
-    // ── Mid-ground layer — more varied, some taller ───────────────
-    // Heights: short (80-150), medium (200-280), occasional tall (340-380)
-    const mid = [
-      [0,H,58,130],[58,H,72,190],[130,H,44,82],[174,H,88,245],[262,H,50,145],
-      [312,H,65,300],[377,H,42,88],[419,H,95,265],[514,H,55,160],[569,H,78,340],
-      [647,H,46,105],[693,H,85,220],[778,H,52,370],[830,H,68,150],[898,H,46,92],
-      [944,H,80,280],[1024,H,55,195],[1079,H,70,120],[1149,H,88,350],[1237,H,50,145],
-      [1287,H,65,230],[1352,H,45,88],[1397,H,82,295],[1479,H,55,165],[1534,H,72,110],
-      [1606,H,90,320],[1696,H,48,185],[1744,H,65,100],[1809,H,85,255],[1894,H,55,135],
-      [1949,H,70,200],[2019,H,50,92],
-    ];
-    mid.forEach(([x,base,w,bh]) => drawFlat(x, base-bh, w, bh, '#0c1122', 0.16));
-
-    // ── Foreground — the main dramatic skyline ────────────────────
-    // Hand-crafted Manhattan-inspired profile with dramatic height variation
-    // Short buildings: 90-160px | Medium: 220-300px | Tall: 370-430px | Supertall: 460-490px
-    const fgBuildings = [
-      // Left edge — lower density, shorter
-      { x:0,   w:50,  h:145, type:'flat'  },
-      { x:50,  w:38,  h:92,  type:'flat'  },
-      { x:88,  w:72,  h:205, type:'flat'  },
-      { x:160, w:42,  h:118, type:'flat'  },
-      // First tall cluster
-      { x:202, w:60,  h:255, type:'flat'  },
-      { x:262, w:85,  h:420, type:'tower' }, // ← landmark tower
-      { x:347, w:46,  h:170, type:'flat'  },
-      { x:393, w:70,  h:285, type:'flat'  },
-      { x:463, w:38,  h:102, type:'flat'  },
-      // Dense midtown — very tall cluster
-      { x:501, w:55,  h:310, type:'flat'  },
-      { x:556, w:48,  h:385, type:'glass' }, // glass tower
-      { x:604, w:90,  h:478, type:'tower' }, // ← supertall (Empire State scale)
-      { x:694, w:52,  h:455, type:'tower' }, // ← second supertall
-      { x:746, w:44,  h:330, type:'glass' },
-      { x:790, w:78,  h:255, type:'flat'  },
-      // Slight dip
-      { x:868, w:42,  h:138, type:'flat'  },
-      { x:910, w:65,  h:195, type:'flat'  },
-      { x:975, w:38,  h:102, type:'flat'  },
-      // Right tall cluster
-      { x:1013,w:72,  h:290, type:'flat'  },
-      { x:1085,w:55,  h:395, type:'tower' }, // ← tall landmark
-      { x:1140,w:48,  h:350, type:'glass' },
-      { x:1188,w:80,  h:430, type:'tower' }, // ← major tower
-      { x:1268,w:46,  h:280, type:'flat'  },
-      { x:1314,w:60,  h:205, type:'flat'  },
-      { x:1374,w:38,  h:125, type:'flat'  },
-      // Lower right
-      { x:1412,w:75,  h:245, type:'flat'  },
-      { x:1487,w:50,  h:370, type:'tower' },
-      { x:1537,w:44,  h:160, type:'flat'  },
-      { x:1581,w:68,  h:220, type:'flat'  },
-      { x:1649,w:42,  h:95,  type:'flat'  },
-      { x:1691,w:80,  h:300, type:'flat'  },
-      { x:1771,w:55,  h:185, type:'flat'  },
-      // Right edge tapers
-      { x:1826,w:65,  h:265, type:'tower' },
-      { x:1891,w:48,  h:142, type:'flat'  },
-      { x:1939,w:70,  h:198, type:'flat'  },
-      { x:2009,w:45,  h:110, type:'flat'  },
-    ];
-
-    fgBuildings.forEach(({ x, w, h, type }) => {
-      if      (type === 'tower') drawTower(x, H, w, h, '#0f1320', 0.40);
-      else if (type === 'glass') drawGlass(x, H, w, h, 0.55);
-      else                       drawFlat (x, H - h, w, h, '#0d1118', 0.38);
+    // Far silhouette (heavily hazed)
+    [[0,62,78],[62,40,55],[102,75,108],[177,44,68],[221,90,130],[311,50,82],
+     [361,68,98],[429,38,60],[467,82,115],[549,55,84],[604,70,102],[674,42,65],
+     [716,85,128],[801,48,75],[849,62,92],[911,50,72],[961,68,100],[1029,40,58],
+    ].forEach(([x,w,h]) => {
+      const t = 168 + Math.floor(hsh(x * 0.04) * 14);
+      drawB(x, H * 0.42 - h, w, h, `rgb(${t},${t + 5},${t + 10})`);
     });
 
-    // ── Street level ─────────────────────────────────────────────
-    const st = ctx.createLinearGradient(0, H * 0.82, 0, H);
-    st.addColorStop(0, '#0c0f16'); st.addColorStop(1, '#060709');
-    ctx.fillStyle = st; ctx.fillRect(0, H * 0.82, W, H * 0.18);
+    // Mid distance
+    [[0,55,135],[55,38,98],[93,70,178],[163,45,128],[208,85,215],[293,50,155],
+     [343,65,188],[408,42,118],[450,78,205],[528,55,162],[583,68,195],[651,44,138],
+     [695,82,230],[777,48,148],[825,62,175],[887,44,122],[931,75,205],[1006,50,158],
+    ].forEach(([x,w,h]) => {
+      const t = 140 + Math.floor(hsh(x * 0.05) * 20);
+      drawB(x, H - h, w, h, `rgb(${t},${t + 3},${t + 8})`);
+    });
 
-    // Wet road reflections (orange/yellow puddle glows)
-    for (let i = 0; i < 22; i++) {
-      const rx = hsh(i * 7.7 + 30) * W, rl = 18 + hsh(i * 5.1) * 40;
-      const rg = ctx.createRadialGradient(rx, H * 0.92, 0, rx, H * 0.92, rl);
-      const warm = hsh(i * 3.3) > 0.5;
-      rg.addColorStop(0, warm ? 'rgba(255,195,70,0.42)' : 'rgba(150,200,255,0.30)');
-      rg.addColorStop(0.4, warm ? 'rgba(255,150,30,0.15)' : 'rgba(100,160,230,0.10)');
-      rg.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = rg; ctx.fillRect(rx - rl, H * 0.87, rl * 2, H * 0.13);
-    }
+    // Foreground buildings (most visible, most varied heights)
+    [[0,50,122],[50,35,85],[85,65,165],[150,42,112],[192,80,205],[272,48,148],
+     [320,62,182],[382,38,100],[420,72,188],[492,52,155],[544,68,198],[612,44,128],
+     [656,78,238],[734,50,162],[784,60,185],[844,42,115],[886,75,218],[961,48,152],
+     [1009,52,170],
+    ].forEach(([x,w,h]) => {
+      const t = 108 + Math.floor(hsh(x * 0.07) * 24);
+      drawB(x, H - h, w, h, `rgb(${t},${t + 3},${t + 6})`);
+    });
+
+    // Street level
+    const st = ctx.createLinearGradient(0, H * 0.78, 0, H);
+    st.addColorStop(0, '#6e757e'); st.addColorStop(1, '#5c6268');
+    ctx.fillStyle = st; ctx.fillRect(0, H * 0.78, W, H * 0.22);
+
+    // ── Window frame — baked into texture (NO 3-D geometry) ──────
+    // This completely replaces all BoxGeometry frame pieces.
+    const FC = '#28241e';   // dark charcoal-brown
+    const outerW = 20;      // outer border (px)
+    const barW   = 12;      // interior bar width (px)
+
+    ctx.fillStyle = FC;
+    ctx.fillRect(0,          0,          W, outerW);   // top
+    ctx.fillRect(0,          H - outerW, W, outerW);   // bottom
+    ctx.fillRect(0,          0,          outerW, H);   // left
+    ctx.fillRect(W - outerW, 0,          outerW, H);   // right
+
+    // 3 vertical mullions → 4 columns
+    [W * 0.25, W * 0.5, W * 0.75].forEach(xp => {
+      ctx.fillRect(Math.round(xp) - barW / 2, 0, barW, H);
+    });
+    // 2 horizontal rails → 3 rows
+    [H * 0.40, H * 0.72].forEach(yp => {
+      ctx.fillRect(0, Math.round(yp) - barW / 2, W, barW);
+    });
+
+    // Subtle glass shimmer
+    const shimmer = ctx.createLinearGradient(0, 0, W * 0.6, H * 0.45);
+    shimmer.addColorStop(0,   'rgba(255,255,255,0.04)');
+    shimmer.addColorStop(0.35,'rgba(255,255,255,0.09)');
+    shimmer.addColorStop(1,   'rgba(255,255,255,0.00)');
+    ctx.fillStyle = shimmer; ctx.fillRect(0, 0, W, H);
 
     return new THREE.CanvasTexture(cv);
   }
@@ -342,7 +235,7 @@ class RoomScene {
     const ctx = cv.getContext('2d');
 
     // Warm greige base — matches wallMat color tint
-    ctx.fillStyle = '#d4ccc0';
+    ctx.fillStyle = '#e0d8c8';
     ctx.fillRect(0, 0, W, H);
 
     // Micro plaster variation via layered sine noise
@@ -388,7 +281,7 @@ class RoomScene {
     const plankH  = 160;
     const numPlanks = Math.ceil(H / plankH);
     // Per-plank tone palette (warm oaks)
-    const tones = [172, 154, 186, 162, 176, 148, 182, 158, 168];
+    const tones = [125, 108, 138, 115, 128, 102, 135, 112, 122];
 
     for (let row = 0; row < numPlanks; row++) {
       const y0 = row * plankH;
@@ -471,13 +364,13 @@ class RoomScene {
     wallTex.repeat.set(2, 2);
     const wallMat = new THREE.MeshStandardMaterial({
       map:       wallTex,
-      color:     0xc8bfb2,   // warm greige — clearly not white
+      color:     0xdfd4be,   // warm cream
       roughness: 0.94,
       metalness: 0.0,
     });
 
     // City skyline material (self-lit, used for both window views)
-    const cityTex = this._buildCityTexture();
+    const cityTex = this._buildWindowTexture();
     const cityMat = new THREE.MeshBasicMaterial({ map: cityTex });
 
     // Window opening dimensions — large balcony-style (world-space)
@@ -558,31 +451,6 @@ class RoomScene {
     rCity.position.set(5.04, winCY, winCZ);
     this.scene.add(rCity);
 
-    // ── Window frames — very thin aluminum border only ─────────────
-    // Simple perimeter strip, 3 cm wide, 2 cm deep — barely visible at distance
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x202020, roughness: 0.25, metalness: 0.85 });
-    const fW = 0.04, fD = 0.02;  // bar width and depth into room
-
-    const addFrame = (wx) => {
-      const sx = wx < 0 ? 1 : -1;
-      const ex = wx + sx * fD / 2;
-      [
-        // perimeter only — top, bottom, left post, right post
-        [ex, winTop, winCZ,  winW + fW * 2, fW, fD],
-        [ex, winBot, winCZ,  winW + fW * 2, fW, fD],
-        [ex, winCY,  winL,   fD, winH, fW],
-        [ex, winCY,  winR,   fD, winH, fW],
-        // one thin centre mullion
-        [ex, winCY, winCZ,   fD, winH, fW * 0.7],
-      ].forEach(([fx, fy, fz, bw, bh, bd]) => {
-        const fb = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), frameMat);
-        fb.position.set(fx, fy, fz);
-        this.scene.add(fb);
-      });
-    };
-    addFrame(-5);
-    addFrame( 5);
-
     // ── Ceiling skylight ──────────────────────────────────────────
     const slW = 3.0, slD = 2.2, ceilY = 4.48;
     const glassMat = new THREE.MeshBasicMaterial({ color: 0xfff9f0 });
@@ -609,6 +477,42 @@ class RoomScene {
     const housing = new THREE.Mesh(new THREE.BoxGeometry(slW + 0.4, 0.18, slD + 0.4), housingMat);
     housing.position.set(0, ceilY + 0.09, -0.5);
     this.scene.add(housing);
+
+    // ── Pendant lamp ──────────────────────────────────────────────
+    const lampY = 2.8;
+    // Cord
+    const cordMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.6, 8), cordMat);
+    cord.position.set(0, lampY + 0.8, -1.5);
+    this.scene.add(cord);
+    // Shade — inverted cone
+    const shadeMat = new THREE.MeshStandardMaterial({ color: 0xc8a96e, roughness: 0.75, metalness: 0.1, side: THREE.DoubleSide });
+    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.38, 24, 1, true), shadeMat);
+    shade.rotation.x = Math.PI; // flip so open end faces down
+    shade.position.set(0, lampY, -1.5);
+    this.scene.add(shade);
+    // Inner glow disc
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0xffe8c0 });
+    const glowDisc = new THREE.Mesh(new THREE.CircleGeometry(0.38, 24), glowMat);
+    glowDisc.rotation.x = Math.PI / 2;
+    glowDisc.position.set(0, lampY - 0.19, -1.5);
+    this.scene.add(glowDisc);
+
+    // ── Baseboards ────────────────────────────────────────────────
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0xf0ebe0, roughness: 0.85 });
+    const bH = 0.12, bD = 0.04, floorY = -1.6;
+    // Back wall baseboard
+    const bbBack = new THREE.Mesh(new THREE.BoxGeometry(14, bH, bD), baseMat);
+    bbBack.position.set(0, floorY + bH / 2, -5.98);
+    this.scene.add(bbBack);
+    // Left wall baseboard
+    const bbLeft = new THREE.Mesh(new THREE.BoxGeometry(bD, bH, 14), baseMat);
+    bbLeft.position.set(-4.98, floorY + bH / 2, 0);
+    this.scene.add(bbLeft);
+    // Right wall baseboard
+    const bbRight = new THREE.Mesh(new THREE.BoxGeometry(bD, bH, 14), baseMat);
+    bbRight.position.set(4.98, floorY + bH / 2, 0);
+    this.scene.add(bbRight);
   }
 
   /* ── The sphere ───────────────────────────────────────────────── */
@@ -715,14 +619,19 @@ class RoomScene {
     // Warm ambient — kept low so walls show their actual colour
     this.scene.add(new THREE.AmbientLight(0xd8d0c4, 1.6));
 
-    // Cool moonlight bleeding in from side windows
-    const lWin = new THREE.PointLight(0x5878b8, 1.1, 8, 2);
+    // Daylight spilling in from side windows
+    const lWin = new THREE.PointLight(0xa8c4d8, 1.2, 8, 2);
     lWin.position.set(-4.0, 1.3, -0.5);
     this.scene.add(lWin);
 
-    const rWin = new THREE.PointLight(0x5878b8, 1.1, 8, 2);
+    const rWin = new THREE.PointLight(0xa8c4d8, 1.2, 8, 2);
     rWin.position.set( 4.0, 1.3, -0.5);
     this.scene.add(rWin);
+
+    // Pendant lamp — warm incandescent point light
+    this._pendantLight = new THREE.PointLight(0xffcf80, 2.2, 7, 2);
+    this._pendantLight.position.set(0, 2.7, -1.5);
+    this.scene.add(this._pendantLight);
   }
 
   /* ── Holographic labels ───────────────────────────────────────── */
