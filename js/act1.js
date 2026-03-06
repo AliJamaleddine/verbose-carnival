@@ -21,6 +21,8 @@ class UniverseScene {
 
     this._warpTime    = 0;
     this._starOrigins = null;
+    // Offset so Africa/Europe faces camera at start (lon ≈ +20°)
+    this._earthRotOffset = 20 * Math.PI / 180;
 
     this._setupRenderer();
     this._setupScene();
@@ -50,7 +52,7 @@ class UniverseScene {
   /* ── Scene & camera ───────────────────────────────────────────── */
   _setupScene() {
     this.scene  = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x03030a, 0.008);
+    // No fog — it would wash out the stars at 180–400 unit distance
 
     this.camera = new THREE.PerspectiveCamera(
       45, window.innerWidth / window.innerHeight, 0.1, 1000
@@ -626,9 +628,9 @@ class UniverseScene {
 
     const t = (Date.now() - this._startTime) * 0.001;
 
-    // Earth & cloud slow rotation
-    if (this._earth)  this._earth.rotation.y  = t * 0.045;
-    if (this._clouds) this._clouds.rotation.y = t * 0.056;
+    // Earth & cloud slow rotation — offset so Africa/Europe faces camera
+    if (this._earth)  this._earth.rotation.y  = t * 0.045 + this._earthRotOffset;
+    if (this._clouds) this._clouds.rotation.y = t * 0.056 + this._earthRotOffset;
 
     // Very gentle camera drift (not driven by GSAP)
     if (!this._inTransition) {

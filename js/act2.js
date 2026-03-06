@@ -83,17 +83,17 @@ class RoomScene {
     ec.width = W; ec.height = H;
     const ectx = ec.getContext('2d');
 
-    // Warm white base — the gallery room the sphere sits in
-    ectx.fillStyle = '#f0eee6';
+    // Warm white base — gallery room
+    ectx.fillStyle = '#eeece6';
     ectx.fillRect(0, 0, W, H);
 
-    // Skylight: bright warm rectangle near top-centre (like the skylight in reference image)
-    const skylight = ectx.createRadialGradient(W * 0.5, H * 0.08, 0, W * 0.5, H * 0.08, W * 0.22);
-    skylight.addColorStop(0,   'rgba(255, 252, 240, 1.0)');
-    skylight.addColorStop(0.5, 'rgba(245, 240, 220, 0.5)');
+    // Bright skylight band at the very top
+    const skylight = ectx.createLinearGradient(0, 0, 0, H * 0.2);
+    skylight.addColorStop(0,   'rgba(255, 252, 244, 1.0)');
+    skylight.addColorStop(0.6, 'rgba(255, 252, 244, 0.6)');
     skylight.addColorStop(1,   'rgba(0,   0,   0,   0)');
     ectx.fillStyle = skylight;
-    ectx.fillRect(0, 0, W, H * 0.3);
+    ectx.fillRect(0, 0, W, H * 0.2);
 
     // Warm wooden floor reflection at the bottom
     const botLight = ectx.createRadialGradient(W / 2, H, 0, W / 2, H, W * 0.4);
@@ -122,40 +122,134 @@ class RoomScene {
     this.scene.environment = this._envMap;
   }
 
+  /* ── Procedural wood floor texture ───────────────────────────── */
+  _buildWoodTexture() {
+    const W = 1024, H = 1024;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+
+    // Base warm wood tone
+    ctx.fillStyle = '#b8884e';
+    ctx.fillRect(0, 0, W, H);
+
+    const plankH = 96;
+    const numPlanks = Math.ceil(H / plankH);
+
+    for (let row = 0; row < numPlanks; row++) {
+      const y0 = row * plankH;
+      // Slight color variation per plank
+      const tone = 170 + Math.floor(Math.sin(row * 1.7) * 20);
+      ctx.fillStyle = `rgb(${tone},${Math.floor(tone * 0.72)},${Math.floor(tone * 0.42)})`;
+      ctx.fillRect(0, y0 + 2, W, plankH - 2);
+
+      // Horizontal wood grain lines
+      for (let g = y0 + 6; g < y0 + plankH - 4; g += 4 + (row * 13 % 5)) {
+        const alpha = 0.025 + (g % 7) * 0.006;
+        ctx.strokeStyle = `rgba(0,0,0,${alpha})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, g);
+        ctx.bezierCurveTo(W * 0.3, g + (Math.sin(g) * 1.5), W * 0.7, g - (Math.cos(g) * 1.5), W, g);
+        ctx.stroke();
+      }
+
+      // Plank gap (dark line)
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(0, y0, W, 2);
+
+      // Vertical board seam offset per row
+      const seam = (row % 3) * (W / 3) + (row % 2) * (W / 6);
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.fillRect(seam, y0, 2, plankH);
+      if (seam + W / 3 < W) ctx.fillRect(seam + W / 3, y0, 2, plankH);
+    }
+
+    return new THREE.CanvasTexture(cv);
+  }
+
   /* ── Room geometry ────────────────────────────────────────────── */
   _buildRoom() {
-    const darkMat = new THREE.MeshStandardMaterial({
-      color:     0xeeeae0,
-      roughness: 0.92,
-      metalness: 0.02,
+    const wallMat = new THREE.MeshStandardMaterial({
+      color:     0xf3f0ec,
+      roughness: 0.94,
+      metalness: 0.0,
     });
 
-    // Floor
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), darkMat.clone());
+    // Wood floor
+    const woodTex = this._buildWoodTexture();
+    woodTex.wrapS = woodTex.wrapT = THREE.RepeatWrapping;
+    woodTex.repeat.set(3, 3);
+    const floorMat = new THREE.MeshStandardMaterial({
+      map:       woodTex,
+      roughness: 0.80,
+      metalness: 0.02,
+    });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), floorMat);
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y  = -1.6;
+    floor.position.y = -1.6;
     floor.receiveShadow = true;
     this.scene.add(floor);
 
     // Ceiling
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), darkMat.clone());
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), wallMat.clone());
     ceil.rotation.x = Math.PI / 2;
-    ceil.position.y  = 5;
+    ceil.position.y = 4.5;
     this.scene.add(ceil);
 
     // Back wall
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(20, 12), darkMat.clone());
-    back.position.z = -6;
-    back.position.y  = 1;
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(14, 6.5), wallMat.clone());
+    back.position.set(0, 1.2, -6);
     this.scene.add(back);
 
-    // Wood floor (different material from walls)
-    const floorMat = new THREE.MeshStandardMaterial({
-      color:     0xc8a878,
-      roughness: 0.88,
-      metalness: 0.01,
+    // Left wall
+    const left = new THREE.Mesh(new THREE.PlaneGeometry(14, 6.5), wallMat.clone());
+    left.rotation.y = Math.PI / 2;
+    left.position.set(-5, 1.2, -0.5);
+    this.scene.add(left);
+
+    // Right wall
+    const right = new THREE.Mesh(new THREE.PlaneGeometry(14, 6.5), wallMat.clone());
+    right.rotation.y = -Math.PI / 2;
+    right.position.set(5, 1.2, -0.5);
+    this.scene.add(right);
+
+    // ── Ceiling skylight / window panel ──────────────────────────
+    const slW = 3.0, slD = 2.2;
+    const ceilY = 4.48;
+
+    // Bright frosted glass panel (emissive white)
+    const glassMat = new THREE.MeshBasicMaterial({ color: 0xfff9f0 });
+    const glassPane = new THREE.Mesh(new THREE.PlaneGeometry(slW, slD), glassMat);
+    glassPane.rotation.x = Math.PI / 2;
+    glassPane.position.set(0, ceilY, -0.5);
+    this.scene.add(glassPane);
+
+    // Metal frame around the skylight (4 bars)
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.5, metalness: 0.6 });
+    const fw = 0.07, fh = 0.12;
+    const frameData = [
+      { pos: [0, ceilY + 0.01, -0.5 + slD / 2],   size: [slW + fw * 2, fh, fw] },
+      { pos: [0, ceilY + 0.01, -0.5 - slD / 2],   size: [slW + fw * 2, fh, fw] },
+      { pos: [ slW / 2, ceilY + 0.01, -0.5],       size: [fw, fh, slD] },
+      { pos: [-slW / 2, ceilY + 0.01, -0.5],       size: [fw, fh, slD] },
+      // Cross bar
+      { pos: [0, ceilY + 0.01, -0.5],              size: [slW, fh, fw] },
+    ];
+    frameData.forEach(({ pos, size }) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(...size), frameMat);
+      m.position.set(...pos);
+      this.scene.add(m);
     });
-    floor.material = floorMat;
+
+    // Lamp housing recessed into ceiling around the skylight
+    const housingMat = new THREE.MeshStandardMaterial({ color: 0xd8d4ce, roughness: 0.9 });
+    const housing = new THREE.Mesh(
+      new THREE.BoxGeometry(slW + 0.4, 0.18, slD + 0.4),
+      housingMat
+    );
+    housing.position.set(0, ceilY + 0.09, -0.5);
+    this.scene.add(housing);
   }
 
   /* ── The sphere ───────────────────────────────────────────────── */
@@ -238,29 +332,29 @@ class RoomScene {
 
   /* ── Lights ───────────────────────────────────────────────────── */
   _buildLights() {
-    // Overhead spot — warm key light casting a soft shadow on the floor
-    this._keyLight = new THREE.SpotLight(0xfff3d0, 2.8, 12, Math.PI / 5, 0.5, 1.5);
-    this._keyLight.position.set(0, 5, 0.5);
+    // Skylight spot — tight cone directly below the ceiling panel
+    this._keyLight = new THREE.SpotLight(0xfff8f0, 3.5, 14, Math.PI / 7, 0.35, 1.2);
+    this._keyLight.position.set(0, 4.4, -0.5);
     this._keyLight.target.position.set(0, -0.6, 0);
     this._keyLight.castShadow = true;
-    this._keyLight.shadow.mapSize.set(1024, 1024);
-    this._keyLight.shadow.camera.near = 1;
-    this._keyLight.shadow.camera.far  = 15;
+    this._keyLight.shadow.mapSize.set(2048, 2048);
+    this._keyLight.shadow.camera.near = 0.5;
+    this._keyLight.shadow.camera.far  = 12;
     this.scene.add(this._keyLight);
     this.scene.add(this._keyLight.target);
 
-    // Cool blue-grey fill from front-left
-    this._fillLight = new THREE.PointLight(0x8090c0, 1.2, 10, 2);
-    this._fillLight.position.set(-3, 1, 3);
+    // Soft fill from front — simulates bounce off walls
+    this._fillLight = new THREE.PointLight(0xe8e4dc, 1.0, 12, 2);
+    this._fillLight.position.set(0, 2, 5);
     this.scene.add(this._fillLight);
 
-    // Accent red underlight (hidden until activation)
-    this._redLight = new THREE.PointLight(0xcc0000, 0, 5, 2);
-    this._redLight.position.set(0, -1.5, 0);
-    this.scene.add(this._redLight);
+    // Side fill — cool-neutral from left wall
+    this.scene.add(Object.assign(new THREE.PointLight(0xd0d8e8, 0.6, 10, 2), {
+      position: new THREE.Vector3(-4, 1.5, 0)
+    }));
 
-    // Bright ambient — essential for a white room to feel airy
-    this.scene.add(new THREE.AmbientLight(0xd8d4cc, 4));
+    // Warm ambient (gallery daylight feel)
+    this.scene.add(new THREE.AmbientLight(0xddd9d0, 3.5));
   }
 
   /* ── Holographic labels ───────────────────────────────────────── */
